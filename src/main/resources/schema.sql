@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS `sys_user` (
+  `user_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+  `username` VARCHAR(64) NOT NULL COMMENT '用户名',
+  `password` VARCHAR(100) NOT NULL COMMENT 'BCrypt加密密码',
+  `nickname` VARCHAR(64) DEFAULT NULL COMMENT '用户昵称',
+  `role` VARCHAR(32) NOT NULL COMMENT '用户角色：USER或ADMIN',
+  `status` VARCHAR(32) NOT NULL COMMENT '用户状态：ENABLE或DISABLE',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`user_id`),
+  UNIQUE KEY `uk_sys_user_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统用户表';

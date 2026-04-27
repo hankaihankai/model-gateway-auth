@@ -1,0 +1,8 @@
+# 项目文档目录
+docs/
+
+# IntelliJ IDEA 配置目录
+.idea/
+
+# Maven 构建输出目录
+target/
