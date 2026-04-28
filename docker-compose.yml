@@ -1,41 +1,4 @@
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: model-gateway-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-user_manager}
-      TZ: Asia/Shanghai
-    ports:
-      - "${MYSQL_PORT:-3306}:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./docs/database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-123456}"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
-    networks:
-      - model-gateway
-
-  redis:
-    image: redis:7.2-alpine
-    container_name: model-gateway-redis
-    restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
-    networks:
-      - model-gateway
-
   model-gateway-auth:
     build:
       context: .
@@ -43,26 +6,25 @@ services:
     image: model-gateway-auth:latest
     container_name: model-gateway-auth
     restart: unless-stopped
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-user_manager}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATASOURCE_URL: jdbc:mysql://${AUTH_MYSQL_HOST:-host.docker.internal}:${AUTH_MYSQL_PORT:-3306}/${AUTH_MYSQL_DATABASE:-new_api}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${AUTH_MYSQL_USERNAME:-new_api}
+      SPRING_DATASOURCE_PASSWORD: ${AUTH_MYSQL_PASSWORD:-123456}
+      SPRING_DATA_REDIS_HOST: ${AUTH_REDIS_HOST:-new-api-redis}
+      SPRING_DATA_REDIS_PORT: ${AUTH_REDIS_PORT:-6379}
+      SPRING_DATA_REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD:-123456}
       GATEWAY_JWT_PRIVATE_KEY: ${GATEWAY_JWT_PRIVATE_KEY:-REPLACE_WITH_PRIVATE_KEY_PEM_USE_BACKSLASH_N}
       GATEWAY_JWT_PUBLIC_KEY: ${GATEWAY_JWT_PUBLIC_KEY:-REPLACE_WITH_PUBLIC_KEY_PEM_USE_BACKSLASH_N}
       GATEWAY_CREDENTIAL_KEY_ID: ${GATEWAY_CREDENTIAL_KEY_ID:-main}
       GATEWAY_CREDENTIAL_AES_KEY: ${GATEWAY_CREDENTIAL_AES_KEY:-REPLACE_WITH_BASE64_32_BYTE_AES_KEY}
       APISIX_GATEWAY_SECRET: ${APISIX_GATEWAY_SECRET:-REPLACE_WITH_APISIX_GATEWAY_SECRET}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${AUTH_PORT:-8080}:8080"
     networks:
       - model-gateway
+      - new-api-network
 
   etcd:
     image: docker.m.daocloud.io/bitnamilegacy/etcd:3.5
@@ -92,6 +54,7 @@ services:
       - ./apisix/apisix_plugins/model-gateway-auth.lua:/usr/local/apisix/apisix/plugins/model-gateway-auth.lua:ro
     networks:
       - model-gateway
+      - new-api-network
 
   apisix-init:
     image: curlimages/curl:8.11.1
@@ -106,6 +69,9 @@ services:
       APISIX_GATEWAY_SECRET: ${APISIX_GATEWAY_SECRET:-REPLACE_WITH_APISIX_GATEWAY_SECRET}
       APISIX_AES_KEY_ID: ${GATEWAY_CREDENTIAL_KEY_ID:-main}
       APISIX_AES_KEY: ${GATEWAY_CREDENTIAL_AES_KEY:-REPLACE_WITH_BASE64_32_BYTE_AES_KEY}
+      APISIX_REDIS_HOST: ${AUTH_REDIS_HOST:-new-api-redis}
+      APISIX_REDIS_PORT: ${AUTH_REDIS_PORT:-6379}
+      APISIX_REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD:-123456}
       NEW_API_NODE: ${NEW_API_NODE:-120.53.240.51:3000}
     command:
       - /bin/sh
@@ -122,9 +88,10 @@ services:
               "jwt_public_key": "$$APISIX_JWT_PUBLIC_KEY",
               "jwt_issuer": "model-gateway-auth",
               "jwt_audience": "apisix-llm-gateway",
-              "redis_host": "redis",
-              "redis_port": 6379,
+              "redis_host": "$$APISIX_REDIS_HOST",
+              "redis_port": $$APISIX_REDIS_PORT,
               "redis_database": 0,
+              "redis_password": "$$APISIX_REDIS_PASSWORD",
               "credential_ensure_url": "http://model-gateway-auth:8080/api/gateway/new-api-credential/ensure",
               "gateway_secret": "$$APISIX_GATEWAY_SECRET",
               "aes_keys": {
@@ -157,6 +124,7 @@ services:
         exit 1
     networks:
       - model-gateway
+      - new-api-network
 
   dashboard:
     image: docker.m.daocloud.io/apache/apisix-dashboard:3.0.1-alpine
@@ -174,8 +142,9 @@ services:
 networks:
   model-gateway:
     driver: bridge
+  new-api-network:
+    external: true
+    name: ${AUTH_NEW_API_DOCKER_NETWORK:-new-api_default}
 
 volumes:
-  mysql_data:
-  redis_data:
   etcd_data:

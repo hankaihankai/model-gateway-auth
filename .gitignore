@@ -1,5 +1,7 @@
-# 项目文档目录
-docs/
+# 项目文档目录，发布相关文档和数据库脚本需要跟随代码发布
+docs/*
+!docs/deploy.md
+!docs/database.sql
 
 # IntelliJ IDEA 配置目录
 .idea/
