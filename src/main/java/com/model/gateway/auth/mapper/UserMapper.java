@@ -1,7 +1,9 @@
 package com.model.gateway.auth.mapper;
 
 import com.model.gateway.auth.domain.SysUser;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Select;
 
 /**
@@ -49,4 +51,28 @@ public interface UserMapper {
             LIMIT 1
             """)
     SysUser selectByUserId(Long userId);
+
+    /**
+     * 新增系统用户。
+     *
+     * @param user 系统用户
+     * @return 影响行数
+     */
+    @Insert("""
+            INSERT INTO sys_user (
+                username,
+                password,
+                nickname,
+                role,
+                status
+            ) VALUES (
+                #{username},
+                #{password},
+                #{nickname},
+                #{role},
+                #{status}
+            )
+            """)
+    @Options(useGeneratedKeys = true, keyProperty = "userId", keyColumn = "user_id")
+    int insert(SysUser user);
 }

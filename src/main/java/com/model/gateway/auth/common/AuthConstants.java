@@ -11,11 +11,6 @@ public final class AuthConstants {
     public static final String TOKEN_TYPE_BEARER = "Bearer";
 
     /**
-     * 启用状态。
-     */
-    public static final String STATUS_ENABLE = "ENABLE";
-
-    /**
      * 管理员角色。
      */
     public static final String ROLE_ADMIN = "ADMIN";

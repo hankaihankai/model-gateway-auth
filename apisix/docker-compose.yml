@@ -1,0 +1,50 @@
+services:
+  etcd:
+    image: docker.m.daocloud.io/bitnamilegacy/etcd:3.5
+    container_name: apisix-local-etcd
+    restart: unless-stopped
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    volumes:
+      - etcd_data:/bitnami/etcd
+    networks:
+      - apisix
+
+  apisix:
+    image: docker.m.daocloud.io/apache/apisix:3.9.1-debian
+    container_name: apisix-local
+    restart: unless-stopped
+    depends_on:
+      - etcd
+    ports:
+      - "9080:9080"
+      - "9180:9180"
+      - "9091:9091"
+    volumes:
+      - ./apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - ./apisix_plugins/model-gateway-auth.lua:/usr/local/apisix/apisix/plugins/model-gateway-auth.lua:ro
+    networks:
+      - apisix
+
+  dashboard:
+    image: docker.m.daocloud.io/apache/apisix-dashboard:3.0.1-alpine
+    container_name: apisix-local-dashboard
+    restart: unless-stopped
+    depends_on:
+      - etcd
+      - apisix
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./dashboard_conf/conf.yaml:/usr/local/apisix-dashboard/conf/conf.yaml:ro
+    networks:
+      - apisix
+
+networks:
+  apisix:
+    driver: bridge
+
+volumes:
+  etcd_data:

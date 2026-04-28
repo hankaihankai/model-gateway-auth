@@ -17,6 +17,14 @@ public interface AuthService {
     LoginResponse login(LoginRequest request);
 
     /**
+     * 刷新登录Token。
+     *
+     * @param authorization Authorization请求头
+     * @return 登录响应
+     */
+    LoginResponse refresh(String authorization);
+
+    /**
      * 执行用户登出。
      */
     void logout();

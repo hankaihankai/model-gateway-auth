@@ -6,6 +6,7 @@ import com.model.gateway.auth.service.AuthService;
 import com.model.gateway.auth.vo.LoginResponse;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,6 +40,17 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@RequestBody LoginRequest request) {
         return ApiResponse.success(authService.login(request));
+    }
+
+    /**
+     * 刷新登录Token接口。
+     *
+     * @param authorization Authorization请求头
+     * @return 登录响应
+     */
+    @PostMapping("/refresh")
+    public ApiResponse<LoginResponse> refresh(@RequestHeader("Authorization") String authorization) {
+        return ApiResponse.success(authService.refresh(authorization));
     }
 
     /**

@@ -2,13 +2,17 @@ package com.model.gateway.auth.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.common.AuthConstants;
+import com.model.gateway.auth.common.UserStatusEnum;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.dto.LoginRequest;
 import com.model.gateway.auth.exception.AuthException;
 import com.model.gateway.auth.mapper.UserMapper;
 import com.model.gateway.auth.service.AuthService;
+import com.model.gateway.auth.service.GatewayJwtService;
+import com.model.gateway.auth.service.NewApiBindingService;
 import com.model.gateway.auth.vo.LoginResponse;
 import com.model.gateway.auth.vo.UserInfoVo;
+import io.jsonwebtoken.Claims;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -30,14 +34,32 @@ public class AuthServiceImpl implements AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
 
     /**
+     * new-api绑定业务服务。
+     */
+    private final NewApiBindingService newApiBindingService;
+
+    /**
+     * 网关JWT服务。
+     */
+    private final GatewayJwtService gatewayJwtService;
+
+    /**
      * 创建认证业务服务实现。
      *
      * @param userMapper 用户数据访问对象
      * @param passwordEncoder BCrypt密码编码器
+     * @param newApiBindingService new-api绑定业务服务
+     * @param gatewayJwtService 网关JWT服务
      */
-    public AuthServiceImpl(UserMapper userMapper, BCryptPasswordEncoder passwordEncoder) {
+    public AuthServiceImpl(
+            UserMapper userMapper,
+            BCryptPasswordEncoder passwordEncoder,
+            NewApiBindingService newApiBindingService,
+            GatewayJwtService gatewayJwtService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
+        this.newApiBindingService = newApiBindingService;
+        this.gatewayJwtService = gatewayJwtService;
     }
 
     /**
@@ -53,22 +75,34 @@ public class AuthServiceImpl implements AuthService {
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new AuthException("用户名或密码错误");
         }
-        if (!AuthConstants.STATUS_ENABLE.equals(user.getStatus())) {
+        if (!UserStatusEnum.ENABLE.getCode().equals(user.getStatus())) {
             throw new AuthException("用户已禁用");
         }
 
         StpUtil.login(user.getUserId());
-        return LoginResponse.builder()
-                .accessToken(StpUtil.getTokenValue())
-                .tokenType(AuthConstants.TOKEN_TYPE_BEARER)
-                .expiresIn(StpUtil.getTokenTimeout())
-                .userInfo(UserInfoVo.builder()
-                        .userId(user.getUserId())
-                        .username(user.getUsername())
-                        .nickname(user.getNickname())
-                        .role(user.getRole())
-                        .build())
-                .build();
+        newApiBindingService.ensureCredential(user);
+        return buildLoginResponse(user);
+    }
+
+    /**
+     * 刷新登录Token并延长new-api凭证缓存。
+     *
+     * @param authorization Authorization请求头
+     * @return 登录响应
+     */
+    @Override
+    public LoginResponse refresh(String authorization) {
+        Claims claims = gatewayJwtService.parseToken(gatewayJwtService.extractBearerToken(authorization));
+        Long userId = Long.valueOf(claims.getSubject());
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        if (!UserStatusEnum.ENABLE.getCode().equals(user.getStatus())) {
+            throw new AuthException("用户已禁用");
+        }
+        newApiBindingService.ensureCredential(user);
+        return buildLoginResponse(user);
     }
 
     /**
@@ -88,5 +122,26 @@ public class AuthServiceImpl implements AuthService {
         if (request == null || !StringUtils.hasText(request.getUsername()) || !StringUtils.hasText(request.getPassword())) {
             throw new AuthException("用户名和密码不能为空");
         }
+    }
+
+    /**
+     * 构建登录响应。
+     *
+     * @param user 用户信息
+     * @return 登录响应
+     */
+    private LoginResponse buildLoginResponse(SysUser user) {
+        String gatewayToken = gatewayJwtService.createToken(user);
+        return LoginResponse.builder()
+                .accessToken(gatewayToken)
+                .tokenType(AuthConstants.TOKEN_TYPE_BEARER)
+                .expiresIn(gatewayJwtService.getExpireSeconds())
+                .userInfo(UserInfoVo.builder()
+                        .userId(user.getUserId())
+                        .username(user.getUsername())
+                        .nickname(user.getNickname())
+                        .role(user.getRole())
+                        .build())
+                .build();
     }
 }

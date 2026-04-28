@@ -4,6 +4,7 @@ import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotRoleException;
 import com.model.gateway.auth.common.ApiResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,6 +25,19 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<Void> handleAuthException(AuthException exception) {
         return ApiResponse.fail(400, exception.getMessage());
+    }
+
+    /**
+     * 处理带HTTP状态码的认证业务异常。
+     *
+     * @param exception 带HTTP状态码的认证业务异常
+     * @return 失败响应
+     */
+    @ExceptionHandler(AuthStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthStatusException(AuthStatusException exception) {
+        return ResponseEntity
+                .status(exception.getStatus())
+                .body(ApiResponse.fail(exception.getCode(), exception.getMessage()));
     }
 
     /**
