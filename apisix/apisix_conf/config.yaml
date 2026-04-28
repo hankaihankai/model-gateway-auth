@@ -16,7 +16,7 @@ deployment:
       - 0.0.0.0/0
     admin_key:
       - name: admin
-        key: your-admin-key-change-this   # ← 改成你自己的 key
+        key: api-admin-key-1234567654321   # ← 改成你自己的 key
         role: admin
   etcd:
     host:
