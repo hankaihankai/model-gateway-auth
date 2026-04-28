@@ -131,7 +131,8 @@ local function verify_gateway_jwt(conf, token)
         return nil, "Token无效或已过期"
     end
 
-    jwt_obj = jwt:verify_jwt_obj(conf.jwt_public_key, jwt_obj)
+    local jwt_public_key = conf.jwt_public_key:gsub("\\n", "\n")
+    jwt_obj = jwt:verify_jwt_obj(jwt_public_key, jwt_obj)
     if not jwt_obj.verified then
         core.log.warn("gateway jwt verify failed: ", jwt_obj.reason)
         return nil, "Token无效或已过期"

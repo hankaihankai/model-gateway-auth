@@ -1,0 +1,181 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: model-gateway-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-user_manager}
+      TZ: Asia/Shanghai
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docs/database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - model-gateway
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: model-gateway-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - model-gateway
+
+  model-gateway-auth:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: model-gateway-auth:latest
+    container_name: model-gateway-auth
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-user_manager}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      GATEWAY_JWT_PRIVATE_KEY: ${GATEWAY_JWT_PRIVATE_KEY:-REPLACE_WITH_PRIVATE_KEY_PEM_USE_BACKSLASH_N}
+      GATEWAY_JWT_PUBLIC_KEY: ${GATEWAY_JWT_PUBLIC_KEY:-REPLACE_WITH_PUBLIC_KEY_PEM_USE_BACKSLASH_N}
+      GATEWAY_CREDENTIAL_KEY_ID: ${GATEWAY_CREDENTIAL_KEY_ID:-main}
+      GATEWAY_CREDENTIAL_AES_KEY: ${GATEWAY_CREDENTIAL_AES_KEY:-REPLACE_WITH_BASE64_32_BYTE_AES_KEY}
+      APISIX_GATEWAY_SECRET: ${APISIX_GATEWAY_SECRET:-REPLACE_WITH_APISIX_GATEWAY_SECRET}
+    ports:
+      - "${AUTH_PORT:-8080}:8080"
+    networks:
+      - model-gateway
+
+  etcd:
+    image: docker.m.daocloud.io/bitnamilegacy/etcd:3.5
+    container_name: apisix-etcd
+    restart: unless-stopped
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+    volumes:
+      - etcd_data:/bitnami/etcd
+    networks:
+      - model-gateway
+
+  apisix:
+    image: docker.m.daocloud.io/apache/apisix:3.9.1-debian
+    container_name: apisix
+    restart: unless-stopped
+    depends_on:
+      - etcd
+    ports:
+      - "${APISIX_PORT:-9080}:9080"
+      - "${APISIX_ADMIN_PORT:-9180}:9180"
+      - "${APISIX_METRICS_PORT:-9091}:9091"
+    volumes:
+      - ./apisix/apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - ./apisix/apisix_plugins/model-gateway-auth.lua:/usr/local/apisix/apisix/plugins/model-gateway-auth.lua:ro
+    networks:
+      - model-gateway
+
+  apisix-init:
+    image: curlimages/curl:8.11.1
+    container_name: apisix-init
+    depends_on:
+      - apisix
+      - model-gateway-auth
+    restart: "no"
+    environment:
+      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY:-your-admin-key-change-this}
+      APISIX_JWT_PUBLIC_KEY: ${GATEWAY_JWT_PUBLIC_KEY:-REPLACE_WITH_PUBLIC_KEY_PEM_USE_BACKSLASH_N}
+      APISIX_GATEWAY_SECRET: ${APISIX_GATEWAY_SECRET:-REPLACE_WITH_APISIX_GATEWAY_SECRET}
+      APISIX_AES_KEY_ID: ${GATEWAY_CREDENTIAL_KEY_ID:-main}
+      APISIX_AES_KEY: ${GATEWAY_CREDENTIAL_AES_KEY:-REPLACE_WITH_BASE64_32_BYTE_AES_KEY}
+      NEW_API_NODE: ${NEW_API_NODE:-120.53.240.51:3000}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        cat > /tmp/chat-route.json <<EOF
+        {
+          "name": "model-gateway-chat-completions",
+          "uri": "/v1/chat/completions",
+          "methods": ["POST"],
+          "plugins": {
+            "model-gateway-auth": {
+              "jwt_public_key": "$$APISIX_JWT_PUBLIC_KEY",
+              "jwt_issuer": "model-gateway-auth",
+              "jwt_audience": "apisix-llm-gateway",
+              "redis_host": "redis",
+              "redis_port": 6379,
+              "redis_database": 0,
+              "credential_ensure_url": "http://model-gateway-auth:8080/api/gateway/new-api-credential/ensure",
+              "gateway_secret": "$$APISIX_GATEWAY_SECRET",
+              "aes_keys": {
+                "$$APISIX_AES_KEY_ID": "$$APISIX_AES_KEY"
+              }
+            }
+          },
+          "upstream": {
+            "type": "roundrobin",
+            "scheme": "http",
+            "pass_host": "node",
+            "nodes": {
+              "$$NEW_API_NODE": 1
+            }
+          }
+        }
+        EOF
+        for i in $$(seq 1 60); do
+          if curl -fsS -X PUT "http://apisix:9180/apisix/admin/routes/model-gateway-chat-completions" \
+            -H "X-API-KEY: $$APISIX_ADMIN_KEY" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/chat-route.json; then
+            echo "APISIX route model-gateway-chat-completions configured"
+            exit 0
+          fi
+          echo "Waiting for APISIX admin API..."
+          sleep 2
+        done
+        echo "Failed to configure APISIX route" >&2
+        exit 1
+    networks:
+      - model-gateway
+
+  dashboard:
+    image: docker.m.daocloud.io/apache/apisix-dashboard:3.0.1-alpine
+    container_name: apisix-dashboard
+    restart: unless-stopped
+    depends_on:
+      - apisix
+    ports:
+      - "${APISIX_DASHBOARD_PORT:-9000}:9000"
+    volumes:
+      - ./apisix/dashboard_conf/conf.yaml:/usr/local/apisix-dashboard/conf/conf.yaml:ro
+    networks:
+      - model-gateway
+
+networks:
+  model-gateway:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  etcd_data:
