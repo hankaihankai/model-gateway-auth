@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class AdminUserCreateResponse {
+public class UserCreateResponse {
 
     /**
      * 用户ID。

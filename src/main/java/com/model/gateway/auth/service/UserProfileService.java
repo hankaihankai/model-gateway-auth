@@ -4,11 +4,11 @@ import com.model.gateway.auth.common.AuthConstants;
 import com.model.gateway.auth.common.UserStatusEnum;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.domain.UserNewApiBinding;
-import com.model.gateway.auth.dto.AdminUserCreateRequest;
+import com.model.gateway.auth.dto.UserCreateRequest;
 import com.model.gateway.auth.exception.AuthException;
 import com.model.gateway.auth.mapper.UserMapper;
 import com.model.gateway.auth.mapper.UserNewApiBindingMapper;
-import com.model.gateway.auth.vo.AdminUserCreateResponse;
+import com.model.gateway.auth.vo.UserCreateResponse;
 import com.model.gateway.auth.vo.UserProfileVo;
 import io.jsonwebtoken.Claims;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -104,7 +104,8 @@ public class UserProfileService {
      * @return 创建用户响应
      */
     @Transactional(rollbackFor = Exception.class)
-    public AdminUserCreateResponse createUser(AdminUserCreateRequest request) {
+    public UserCreateResponse createUser(UserCreateRequest request) {
+        // 校验创建用户请求, 先都验证一下吧， 避免无效用户创建
         checkCreateRequest(request);
         SysUser exists = userMapper.selectByUsername(request.getUsername());
         if (exists != null) {
@@ -121,7 +122,7 @@ public class UserProfileService {
         userMapper.insert(user);
 
         boolean newApiBound = createBindingIfPresent(user.getUserId(), request);
-        return AdminUserCreateResponse.builder()
+        return UserCreateResponse.builder()
                 .userId(user.getUserId())
                 .username(user.getUsername())
                 .newApiBound(newApiBound)
@@ -133,7 +134,7 @@ public class UserProfileService {
      *
      * @param request 创建用户请求
      */
-    private void checkCreateRequest(AdminUserCreateRequest request) {
+    private void checkCreateRequest(UserCreateRequest request) {
         if (request == null || !StringUtils.hasText(request.getUsername()) || !StringUtils.hasText(request.getPassword())) {
             throw new AuthException("用户名和密码不能为空");
         }
@@ -155,7 +156,7 @@ public class UserProfileService {
      * @param request 创建用户请求
      * @return 是否创建绑定
      */
-    private boolean createBindingIfPresent(Long userId, AdminUserCreateRequest request) {
+    private boolean createBindingIfPresent(Long userId, UserCreateRequest request) {
         if (request.getNewApiUserId() == null
                 && !StringUtils.hasText(request.getNewApiUserName())
                 && !StringUtils.hasText(request.getNewApiApiKey())) {

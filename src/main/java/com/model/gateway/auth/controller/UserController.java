@@ -1,9 +1,9 @@
 package com.model.gateway.auth.controller;
 
 import com.model.gateway.auth.common.ApiResponse;
-import com.model.gateway.auth.dto.AdminUserCreateRequest;
+import com.model.gateway.auth.dto.UserCreateRequest;
 import com.model.gateway.auth.service.UserProfileService;
-import com.model.gateway.auth.vo.AdminUserCreateResponse;
+import com.model.gateway.auth.vo.UserCreateResponse;
 import com.model.gateway.auth.vo.UserProfileVo;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 个人用户接口控制器。
  */
-@RestController
+@RestController("/api/user/")
 public class UserController {
 
     /**
@@ -37,7 +37,7 @@ public class UserController {
      * @param authorization Authorization请求头
      * @return 当前用户资料
      */
-    @GetMapping("/api/user/profile")
+    @GetMapping("profile")
     public ApiResponse<UserProfileVo> profile(@RequestHeader("Authorization") String authorization) {
         return ApiResponse.success(userProfileService.getProfile(authorization));
     }
@@ -48,8 +48,8 @@ public class UserController {
      * @param request 创建用户请求
      * @return 创建用户响应
      */
-    @PostMapping("/api/admin/users/registerUser")
-    public ApiResponse<AdminUserCreateResponse> registerUser(@RequestBody AdminUserCreateRequest request) {
+    @PostMapping("registerUser")
+    public ApiResponse<UserCreateResponse> registerUser(@RequestBody UserCreateRequest request) {
         return ApiResponse.success(userProfileService.createUser(request));
     }
 }
