@@ -2,6 +2,7 @@ package com.model.gateway.auth.service;
 
 import com.model.gateway.auth.config.GatewayCredentialProperties;
 import com.model.gateway.auth.exception.AuthException;
+import com.model.gateway.auth.support.SecretFileUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -109,10 +110,8 @@ public class CredentialCryptoService {
         if (!StringUtils.hasText(credentialProperties.getKeyId())) {
             throw new AuthException("AES密钥标识未配置");
         }
-        if (!StringUtils.hasText(credentialProperties.getAesKey())) {
-            throw new AuthException("AES密钥未配置");
-        }
-        byte[] aesKey = Base64.getDecoder().decode(credentialProperties.getAesKey());
+        String aesKeyText = SecretFileUtils.readRequiredTrimmed(credentialProperties.getAesKeyFile(), "AES密钥");
+        byte[] aesKey = Base64.getDecoder().decode(aesKeyText);
         if (aesKey.length != AES_KEY_SIZE) {
             throw new AuthException("AES密钥必须是Base64编码的32字节内容");
         }

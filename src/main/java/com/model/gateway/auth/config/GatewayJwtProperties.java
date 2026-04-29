@@ -28,12 +28,12 @@ public class GatewayJwtProperties {
     private Long expireSeconds;
 
     /**
-     * RS256私钥。
+     * RS256私钥文件路径。
      */
-    private String privateKey;
+    private String privateKeyFile;
 
     /**
-     * RS256公钥。
+     * RS256公钥文件路径。
      */
-    private String publicKey;
+    private String publicKeyFile;
 }

@@ -59,3 +59,6 @@ Use a short type and scope, then a clear Chinese description. PRs should include
 ## Security & Configuration Tips
 
 Do not commit real JWT private keys, AES keys, APISIX secrets, or new-api API keys. `.env` is for local deployment values and must be reviewed before publishing. PEM keys in `.env` must be stored as one-line `\n` escaped values. User and new-api bindings are manually maintained in MySQL; avoid inventing fallback credentials or hard-coded magic values.
+
+## 要求
+apisix 后续是单独部署，所以docker脚本配置都是单独的， 不要放在最外层

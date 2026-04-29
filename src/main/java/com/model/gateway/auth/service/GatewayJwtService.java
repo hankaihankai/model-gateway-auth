@@ -3,6 +3,7 @@ package com.model.gateway.auth.service;
 import com.model.gateway.auth.config.GatewayJwtProperties;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.exception.AuthException;
+import com.model.gateway.auth.support.SecretFileUtils;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.springframework.stereotype.Service;
@@ -55,7 +56,7 @@ public class GatewayJwtService {
      * @return JWT字符串
      */
     public String createToken(SysUser user) {
-        PrivateKey privateKey = parsePrivateKey(jwtProperties.getPrivateKey());
+        PrivateKey privateKey = parsePrivateKey(SecretFileUtils.readRequiredText(jwtProperties.getPrivateKeyFile(), "JWT私钥"));
         Instant now = Instant.now();
         Instant expireAt = now.plusSeconds(getExpireSeconds());
         return Jwts.builder()
@@ -80,7 +81,7 @@ public class GatewayJwtService {
      */
     public Claims parseToken(String token) {
         try {
-            PublicKey publicKey = parsePublicKey(jwtProperties.getPublicKey());
+            PublicKey publicKey = parsePublicKey(SecretFileUtils.readRequiredText(jwtProperties.getPublicKeyFile(), "JWT公钥"));
             return Jwts.parser()
                     .verifyWith(publicKey)
                     .requireIssuer(jwtProperties.getIssuer())

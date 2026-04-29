@@ -8,3 +8,9 @@ docs/*
 
 # Maven 构建输出目录
 target/
+
+# 本地部署密钥目录，只提交占位文件
+cert/*
+!cert/.gitkeep
+apisix/cert/*
+!apisix/cert/.gitkeep

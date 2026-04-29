@@ -38,9 +38,9 @@ gateway:
     issuer: model-gateway-auth
     audience: apisix-llm-gateway
     expire-seconds: 7200
-    private-key: ${GATEWAY_JWT_PRIVATE_KEY:}
-    public-key: ${GATEWAY_JWT_PUBLIC_KEY:}
+    private-key-file: ${GATEWAY_JWT_PRIVATE_KEY_FILE:}
+    public-key-file: ${GATEWAY_JWT_PUBLIC_KEY_FILE:}
   credential:
     key-id: ${GATEWAY_CREDENTIAL_KEY_ID:main}
-    aes-key: ${GATEWAY_CREDENTIAL_AES_KEY:}
-    gateway-secret: ${APISIX_GATEWAY_SECRET:}
+    aes-key-file: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:}
+    gateway-secret-file: ${APISIX_GATEWAY_SECRET_FILE:}

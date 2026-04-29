@@ -1,15 +1,15 @@
 # Docker 发布文档
 
-本文档只使用两个部署文件：
+本文档使用两个独立的 Compose 文件部署：
 
-- `Dockerfile`：构建 `model-gateway-auth` 镜像。
-- `docker-compose.yml`：启动 `model-gateway-auth`、APISIX、etcd、Dashboard，并通过 `apisix-init` 自动配置 APISIX 路由。
+- 根目录 `docker-compose.yml`：只启动 `model-gateway-auth` 认证服务。
+- `apisix/docker-compose.yml`：启动 APISIX、etcd、Dashboard，并通过 `apisix-init` 自动配置 APISIX 路由。
 
-说明：MySQL 和 Redis 不由本项目创建。MySQL 使用宿主机已有实例，Redis 使用已有 Docker 容器 `new-api-redis`，密码为 `123456`。
+MySQL 和 Redis 不由本项目创建。MySQL 使用宿主机已有实例，Redis 使用已有 Docker 容器 `new-api-redis`。APISIX 和认证服务后续可以分开部署，分开部署时只需要让 `apisix/.env` 中的认证服务回调地址和 Redis 地址对 APISIX 可达。
 
 ## 1. 上传代码
 
-把整个项目上传到服务器：
+把整个项目上传到服务器，例如：
 
 ```bash
 /opt/model-gateway-auth
@@ -24,12 +24,16 @@ docker-compose.yml
 pom.xml
 src
 docs/database.sql
+cert/.gitkeep
+apisix/docker-compose.yml
+apisix/.env
+apisix/cert/.gitkeep
 apisix/apisix_conf/config.yaml
 apisix/apisix_plugins/model-gateway-auth.lua
 apisix/dashboard_conf/conf.yaml
 ```
 
-进入目录：
+进入项目根目录：
 
 ```bash
 cd /opt/model-gateway-auth
@@ -37,7 +41,7 @@ cd /opt/model-gateway-auth
 
 ## 2. 确认外部 MySQL 和 Redis
 
-MySQL 使用宿主机连接：
+MySQL 默认使用宿主机连接：
 
 ```text
 host.docker.internal:3306
@@ -46,7 +50,7 @@ username: new_api
 password: 123456
 ```
 
-Redis 使用已有 Docker 容器：
+Redis 默认复用已有 Docker 容器：
 
 ```text
 container: new-api-redis
@@ -60,7 +64,7 @@ password: 123456
 docker inspect new-api-redis --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
 ```
 
-把输出值写到 `.env` 的 `AUTH_NEW_API_DOCKER_NETWORK`。例如输出是 `new-api_default`，则保持：
+把输出值同时写到根目录 `.env` 和 `apisix/.env` 的 `AUTH_NEW_API_DOCKER_NETWORK`。例如输出是 `new-api_default`：
 
 ```text
 AUTH_NEW_API_DOCKER_NETWORK=new-api_default
@@ -72,9 +76,9 @@ AUTH_NEW_API_DOCKER_NETWORK=new-api_default
 mysql -h 127.0.0.1 -P 3306 -unew_api -p123456 new_api < docs/database.sql
 ```
 
-## 3. 配置 `.env`
+## 3. 配置根目录 `.env`
 
-项目根目录已经提供 `.env`，上线前按服务器实际值修改：
+根目录 `.env` 只负责认证服务启动：
 
 ```env
 AUTH_MYSQL_HOST=host.docker.internal
@@ -89,6 +93,19 @@ AUTH_REDIS_PASSWORD=123456
 AUTH_NEW_API_DOCKER_NETWORK=new-api_default
 
 AUTH_PORT=8080
+
+GATEWAY_JWT_PRIVATE_KEY_FILE=/app/cert/gateway-jwt-private.pem
+GATEWAY_JWT_PUBLIC_KEY_FILE=/app/cert/gateway-jwt-public.pem
+GATEWAY_CREDENTIAL_KEY_ID=main
+GATEWAY_CREDENTIAL_AES_KEY_FILE=/app/cert/gateway-credential-aes.key
+APISIX_GATEWAY_SECRET_FILE=/app/cert/apisix-gateway-secret.txt
+```
+
+## 4. 配置 `apisix/.env`
+
+`apisix/.env` 只负责 APISIX 和路由初始化：
+
+```env
 APISIX_PORT=9080
 APISIX_ADMIN_PORT=9180
 APISIX_METRICS_PORT=9091
@@ -96,124 +113,126 @@ APISIX_DASHBOARD_PORT=9000
 
 APISIX_ADMIN_KEY=api-admin-key-1234567654321
 NEW_API_NODE=120.53.240.51:3000
+AUTH_API_NODE=host.docker.internal:8080
+AUTH_API_ROUTE_PREFIX=/model-gateway-auth
+APISIX_CREDENTIAL_ENSURE_URL=http://host.docker.internal:8080/api/gateway/new-api-credential/ensure
 
+AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=true
+AUTH_NEW_API_DOCKER_NETWORK=new-api_default
+AUTH_REDIS_HOST=new-api-redis
+AUTH_REDIS_PORT=6379
+AUTH_REDIS_PASSWORD=123456
+
+GATEWAY_JWT_PUBLIC_KEY_FILE=/cert/gateway-jwt-public.pem
 GATEWAY_CREDENTIAL_KEY_ID=main
-GATEWAY_JWT_PRIVATE_KEY=REPLACE_WITH_PRIVATE_KEY_PEM_USE_BACKSLASH_N
-GATEWAY_JWT_PUBLIC_KEY=REPLACE_WITH_PUBLIC_KEY_PEM_USE_BACKSLASH_N
-GATEWAY_CREDENTIAL_AES_KEY=REPLACE_WITH_BASE64_32_BYTE_AES_KEY
-APISIX_GATEWAY_SECRET=REPLACE_WITH_APISIX_GATEWAY_SECRET
+GATEWAY_CREDENTIAL_AES_KEY_FILE=/cert/gateway-credential-aes.key
+APISIX_GATEWAY_SECRET_FILE=/cert/apisix-gateway-secret.txt
 ```
 
-注意：`APISIX_ADMIN_KEY` 必须和 `apisix/apisix_conf/config.yaml` 中的 Admin Key 保持一致。
+注意：
 
-## 4. 生成密钥
+- `APISIX_ADMIN_KEY` 必须和 `apisix/apisix_conf/config.yaml` 中的 Admin Key 保持一致。
+- APISIX 不需要 JWT 私钥，不要把私钥文件复制到 `apisix/cert/`。
+- `GATEWAY_JWT_PUBLIC_KEY_FILE`、`GATEWAY_CREDENTIAL_AES_KEY_FILE`、`APISIX_GATEWAY_SECRET_FILE` 指向 APISIX 容器内的文件路径。
+- `AUTH_API_NODE` 是 APISIX 转发认证服务 API 的上游节点。
+- `AUTH_API_ROUTE_PREFIX` 是认证服务项目对外路由前缀，默认 `/model-gateway-auth`，APISIX 会去掉此前缀后原样转发到认证服务。
+- 同机双 Compose 默认使用 `host.docker.internal` 回调认证服务；分开部署时把 `APISIX_CREDENTIAL_ENSURE_URL` 改成 APISIX 能访问到的认证服务地址。
+- `AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=true` 表示 APISIX 复用已有 Docker 网络访问 `new-api-redis`；分开部署且 Redis 通过 IP 或域名访问时，可以改成 `false` 并把 `AUTH_NEW_API_DOCKER_NETWORK` 改成任意本地网络名。
 
-生成 JWT 私钥和公钥：
+## 5. 生成密钥
+
+创建密钥目录：
 
 ```bash
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt-private.pem
-openssl rsa -pubout -in jwt-private.pem -out jwt-public.pem
+mkdir -p cert apisix/cert
+```
+
+生成 JWT 私钥和公钥，私钥只保存在根目录 `cert/`：
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out cert/gateway-jwt-private.pem
+openssl rsa -pubout -in cert/gateway-jwt-private.pem -out cert/gateway-jwt-public.pem
 ```
 
 生成 AES 密钥和 APISIX 回源密钥：
 
 ```bash
-openssl rand -base64 32 > aes-key.txt
-openssl rand -base64 32 > gateway-secret.txt
+openssl rand -base64 32 > cert/gateway-credential-aes.key
+openssl rand -base64 32 > cert/apisix-gateway-secret.txt
 ```
 
-把密钥写入 `.env`。注意：PEM 私钥和公钥不能直接多行粘贴到 `.env`，必须转换成带 `\n` 的单行字符串：
+把 APISIX 需要的非私钥文件复制到 `apisix/cert/`：
 
 ```bash
-python3 - <<'PY'
-from pathlib import Path
-
-env_path = Path(".env")
-env_lines = env_path.read_text(encoding="utf-8").splitlines()
-
-def pem_to_env_value(path):
-    return "".join(line.strip() + "\\n" for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip())
-
-values = {
-    "GATEWAY_JWT_PRIVATE_KEY": pem_to_env_value("jwt-private.pem"),
-    "GATEWAY_JWT_PUBLIC_KEY": pem_to_env_value("jwt-public.pem"),
-    "GATEWAY_CREDENTIAL_AES_KEY": Path("aes-key.txt").read_text(encoding="utf-8").strip(),
-    "APISIX_GATEWAY_SECRET": Path("gateway-secret.txt").read_text(encoding="utf-8").strip(),
-}
-
-written = set()
-next_lines = []
-for line in env_lines:
-    key = line.split("=", 1)[0] if "=" in line else None
-    if key in values:
-        next_lines.append(f"{key}={values[key]}")
-        written.add(key)
-    else:
-        next_lines.append(line)
-
-for key, value in values.items():
-    if key not in written:
-        next_lines.append(f"{key}={value}")
-
-env_path.write_text("\n".join(next_lines) + "\n", encoding="utf-8")
-PY
+cp cert/gateway-jwt-public.pem apisix/cert/gateway-jwt-public.pem
+cp cert/gateway-credential-aes.key apisix/cert/gateway-credential-aes.key
+cp cert/apisix-gateway-secret.txt apisix/cert/apisix-gateway-secret.txt
 ```
 
-检查关键密钥不是占位符：
+检查密钥文件存在：
 
 ```bash
-grep -E 'GATEWAY_JWT_PRIVATE_KEY|GATEWAY_JWT_PUBLIC_KEY|GATEWAY_CREDENTIAL_AES_KEY|APISIX_GATEWAY_SECRET' .env
+ls -l cert
+ls -l apisix/cert
 ```
 
-检查 `.env` 是否仍包含错误的 PEM 多行内容：
+注意：`cert/` 和 `apisix/cert/` 里的真实密钥文件不提交到 Git。
 
-```bash
-grep -nE '^[A-Za-z0-9+/=]{20,}$|-----BEGIN|-----END' .env
-```
+## 6. 启动认证服务
 
-正常情况下，只应该看到 `GATEWAY_JWT_PRIVATE_KEY=` 和 `GATEWAY_JWT_PUBLIC_KEY=` 两行中包含 `-----BEGIN`、`-----END`，不应该出现单独一行 `MII...`。
-
-## 5. 启动服务
-
-检查 compose 配置：
+在项目根目录检查 Compose 配置：
 
 ```bash
 docker compose --env-file .env config
 ```
 
-启动：
+启动认证服务：
 
 ```bash
 docker compose --env-file .env up -d --build
 ```
 
-这个命令会：
-
-1. 构建 `model-gateway-auth` 镜像。
-2. 启动 `model-gateway-auth`。
-3. 启动 APISIX、etcd、Dashboard。
-4. 通过 `apisix-init` 自动创建 APISIX 路由：
-   `/v1/chat/completions -> http://120.53.240.51:3000/v1/chat/completions`
-
-## 6. 检查服务状态
+确认认证服务状态：
 
 ```bash
 docker compose --env-file .env ps
+docker compose --env-file .env logs --tail=100 model-gateway-auth
 ```
 
-重点确认这些服务是 `Up`：
+根目录 Compose 只应该包含 `model-gateway-auth`。
 
-```text
-model-gateway-auth
-apisix
-apisix-etcd
-apisix-dashboard
-```
+## 7. 启动 APISIX
 
-查看日志：
+进入 APISIX 目录：
 
 ```bash
-docker compose --env-file .env logs --tail=100 model-gateway-auth
+cd /opt/model-gateway-auth/apisix
+```
+
+检查 Compose 配置：
+
+```bash
+docker compose --env-file .env config
+```
+
+启动 APISIX：
+
+```bash
+docker compose --env-file .env up -d
+```
+
+这个命令会：
+
+1. 启动 APISIX 依赖的 etcd。
+2. 启动 APISIX 和 Dashboard。
+3. 通过 `apisix-init` 自动创建 APISIX 路由：
+   `/model-gateway-auth/* -> AUTH_API_NODE/*`
+   `/v1/chat/completions -> NEW_API_NODE/v1/chat/completions`
+
+确认服务状态：
+
+```bash
+docker compose --env-file .env ps
 docker compose --env-file .env logs --tail=100 apisix
 docker compose --env-file .env logs --tail=100 apisix-init
 ```
@@ -221,12 +240,12 @@ docker compose --env-file .env logs --tail=100 apisix-init
 `apisix-init` 日志中应看到：
 
 ```text
-APISIX route model-gateway-chat-completions configured
+APISIX routes model-gateway-auth-api and model-gateway-chat-completions configured
 ```
 
-## 7. 确认 APISIX 路由
+## 8. 确认 APISIX 路由
 
-正常情况下，`apisix-init` 会自动创建路由。先读取 APISIX Admin 参数：
+在 `apisix` 目录读取 Admin 参数：
 
 ```bash
 APISIX_ADMIN_KEY=$(grep -E '^APISIX_ADMIN_KEY=' .env | cut -d= -f2-)
@@ -237,101 +256,131 @@ APISIX_ADMIN_PORT=${APISIX_ADMIN_PORT:-9180}
 确认 APISIX Admin API 可访问：
 
 ```bash
-curl -i "http://127.0.0.1:${APISIX_ADMIN_PORT:-9180}/apisix/admin/routes" \
+curl -i "http://127.0.0.1:${APISIX_ADMIN_PORT}/apisix/admin/routes" \
   -H "X-API-KEY: ${APISIX_ADMIN_KEY}"
 ```
 
 查看自动创建的路由：
 
 ```bash
-curl -s "http://127.0.0.1:${APISIX_ADMIN_PORT:-9180}/apisix/admin/routes/model-gateway-chat-completions" \
+curl -s "http://127.0.0.1:${APISIX_ADMIN_PORT}/apisix/admin/routes/model-gateway-auth-api" \
+  -H "X-API-KEY: ${APISIX_ADMIN_KEY}"
+
+curl -s "http://127.0.0.1:${APISIX_ADMIN_PORT}/apisix/admin/routes/model-gateway-chat-completions" \
   -H "X-API-KEY: ${APISIX_ADMIN_KEY}"
 ```
 
-如果 `apisix-init` 没有成功执行，再用下面的备用流程手动生成路由配置。这里不要 `source .env`，避免 PEM 密钥中的 `\n` 被 shell 处理：
+路由中的 `credential_ensure_url` 应等于 `apisix/.env` 里的 `APISIX_CREDENTIAL_ENSURE_URL`。
+
+如果需要手动配置认证服务路由，在 `apisix` 目录执行：
 
 ```bash
-python3 - <<'PY'
-import json
-from pathlib import Path
+AUTH_API_NODE=$(grep -E '^AUTH_API_NODE=' .env | cut -d= -f2-)
+AUTH_API_NODE=${AUTH_API_NODE:-host.docker.internal:8080}
+AUTH_API_ROUTE_PREFIX=$(grep -E '^AUTH_API_ROUTE_PREFIX=' .env | cut -d= -f2-)
+AUTH_API_ROUTE_PREFIX=${AUTH_API_ROUTE_PREFIX:-/model-gateway-auth}
 
-def read_env(path):
-    values = {}
-    for raw_line in Path(path).read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key] = value
-    return values
-
-env = read_env(".env")
-
-def value(key, default=None):
-    result = env.get(key, default)
-    if result is None or result == "":
-        raise SystemExit(f"缺少 .env 配置：{key}")
-    return result
-
-route = {
-    "name": "model-gateway-chat-completions",
-    "uri": "/v1/chat/completions",
-    "methods": ["POST"],
-    "plugins": {
-        "model-gateway-auth": {
-            "jwt_public_key": value("GATEWAY_JWT_PUBLIC_KEY"),
-            "jwt_issuer": "model-gateway-auth",
-            "jwt_audience": "apisix-llm-gateway",
-            "redis_host": value("AUTH_REDIS_HOST", "new-api-redis"),
-            "redis_port": int(value("AUTH_REDIS_PORT", "6379")),
-            "redis_database": 0,
-            "redis_password": value("AUTH_REDIS_PASSWORD"),
-            "credential_ensure_url": "http://model-gateway-auth:8080/api/gateway/new-api-credential/ensure",
-            "gateway_secret": value("APISIX_GATEWAY_SECRET"),
-            "aes_keys": {
-                value("GATEWAY_CREDENTIAL_KEY_ID", "main"): value("GATEWAY_CREDENTIAL_AES_KEY")
-            }
-        }
-    },
-    "upstream": {
-        "type": "roundrobin",
-        "scheme": "http",
-        "pass_host": "node",
-        "nodes": {
-            value("NEW_API_NODE", "120.53.240.51:3000"): 1
-        }
+cat > /tmp/model-gateway-auth-api-route.json <<EOF
+{
+  "name": "model-gateway-auth-api",
+  "uri": "${AUTH_API_ROUTE_PREFIX}/*",
+  "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  "plugins": {
+    "proxy-rewrite": {
+      "regex_uri": ["^${AUTH_API_ROUTE_PREFIX}/(.*)", "/\$1"]
     }
+  },
+  "upstream": {
+    "type": "roundrobin",
+    "scheme": "http",
+    "pass_host": "node",
+    "nodes": {
+      "${AUTH_API_NODE}": 1
+    }
+  }
 }
+EOF
 
-Path("/tmp/model-gateway-chat-route.json").write_text(
-    json.dumps(route, ensure_ascii=False, indent=2) + "\n",
-    encoding="utf-8",
-)
-PY
+curl -i -X PUT "http://127.0.0.1:${APISIX_ADMIN_PORT}/apisix/admin/routes/model-gateway-auth-api" \
+  -H "X-API-KEY: ${APISIX_ADMIN_KEY}" \
+  -H "Content-Type: application/json" \
+  --data-binary @/tmp/model-gateway-auth-api-route.json
 ```
 
-写入 APISIX：
+认证服务项目路由不要配置 `model-gateway-auth` 插件，否则登录接口会被认证插件拦截。也不要直接使用 `/api/*` 作为认证服务路由，后续其他服务也可能使用 `/api` 前缀，应该使用 `/model-gateway-auth/*` 这类项目级前缀，再去掉此前缀后原样转发到后端。
+
+如果需要手动配置 new-api 聊天路由，在 `apisix` 目录执行：
 
 ```bash
-curl -i -X PUT "http://127.0.0.1:${APISIX_ADMIN_PORT:-9180}/apisix/admin/routes/model-gateway-chat-completions" \
+NEW_API_NODE=$(grep -E '^NEW_API_NODE=' .env | cut -d= -f2-)
+NEW_API_NODE=${NEW_API_NODE:-120.53.240.51:3000}
+APISIX_CREDENTIAL_ENSURE_URL=$(grep -E '^APISIX_CREDENTIAL_ENSURE_URL=' .env | cut -d= -f2-)
+APISIX_CREDENTIAL_ENSURE_URL=${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8080/api/gateway/new-api-credential/ensure}
+AUTH_REDIS_HOST=$(grep -E '^AUTH_REDIS_HOST=' .env | cut -d= -f2-)
+AUTH_REDIS_HOST=${AUTH_REDIS_HOST:-new-api-redis}
+AUTH_REDIS_PORT=$(grep -E '^AUTH_REDIS_PORT=' .env | cut -d= -f2-)
+AUTH_REDIS_PORT=${AUTH_REDIS_PORT:-6379}
+AUTH_REDIS_PASSWORD=$(grep -E '^AUTH_REDIS_PASSWORD=' .env | cut -d= -f2-)
+AUTH_REDIS_PASSWORD=${AUTH_REDIS_PASSWORD:-123456}
+GATEWAY_CREDENTIAL_KEY_ID=$(grep -E '^GATEWAY_CREDENTIAL_KEY_ID=' .env | cut -d= -f2-)
+GATEWAY_CREDENTIAL_KEY_ID=${GATEWAY_CREDENTIAL_KEY_ID:-main}
+
+APISIX_JWT_PUBLIC_KEY=$(awk '{printf "%s\\n", $0}' cert/gateway-jwt-public.pem)
+APISIX_AES_KEY=$(tr -d '\r\n' < cert/gateway-credential-aes.key)
+APISIX_GATEWAY_SECRET=$(tr -d '\r\n' < cert/apisix-gateway-secret.txt)
+
+cat > /tmp/model-gateway-chat-route.json <<EOF
+{
+  "name": "model-gateway-chat-completions",
+  "uri": "/v1/chat/completions",
+  "methods": ["POST"],
+  "plugins": {
+    "model-gateway-auth": {
+      "jwt_public_key": "${APISIX_JWT_PUBLIC_KEY}",
+      "jwt_issuer": "model-gateway-auth",
+      "jwt_audience": "apisix-llm-gateway",
+      "redis_host": "${AUTH_REDIS_HOST}",
+      "redis_port": ${AUTH_REDIS_PORT},
+      "redis_database": 0,
+      "redis_password": "${AUTH_REDIS_PASSWORD}",
+      "credential_ensure_url": "${APISIX_CREDENTIAL_ENSURE_URL}",
+      "gateway_secret": "${APISIX_GATEWAY_SECRET}",
+      "aes_keys": {
+        "${GATEWAY_CREDENTIAL_KEY_ID}": "${APISIX_AES_KEY}"
+      }
+    }
+  },
+  "upstream": {
+    "type": "roundrobin",
+    "scheme": "http",
+    "pass_host": "node",
+    "nodes": {
+      "${NEW_API_NODE}": 1
+    }
+  }
+}
+EOF
+
+curl -i -X PUT "http://127.0.0.1:${APISIX_ADMIN_PORT}/apisix/admin/routes/model-gateway-chat-completions" \
   -H "X-API-KEY: ${APISIX_ADMIN_KEY}" \
   -H "Content-Type: application/json" \
   --data-binary @/tmp/model-gateway-chat-route.json
 ```
 
-返回 `200` 或 `201` 表示路由创建成功。查看路由：
+JWT公钥、AES密钥和APISIX回源密钥只会被配置到挂载 `model-gateway-auth` 插件的路由上。当前是 `/v1/chat/completions`；后续新增需要统一鉴权和new-api凭证注入的路由时，复用同一套插件配置即可，不需要每个路由生成一套新密钥。
+
+## 9. 创建用户和 new-api 绑定
+
+回到项目根目录：
 
 ```bash
-curl -s "http://127.0.0.1:${APISIX_ADMIN_PORT:-9180}/apisix/admin/routes/model-gateway-chat-completions" \
-  -H "X-API-KEY: ${APISIX_ADMIN_KEY}"
+cd /opt/model-gateway-auth
 ```
-
-## 8. 创建用户和 new-api 绑定
 
 创建业务用户：
 
 ```bash
-curl -X POST http://127.0.0.1:${AUTH_PORT:-8080}/api/admin/users/registerUser \
+curl -X POST http://127.0.0.1:${APISIX_PORT:-9080}/model-gateway-auth/api/admin/users/registerUser \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user001",
@@ -369,17 +418,14 @@ INSERT INTO user_new_api_binding (
 );
 ```
 
-说明：
+`new_api_api_key` 需要替换成真实 new-api API Key，`status` 必须是 `ENABLE`。
 
-- `new_api_api_key` 先填 `sk_xxx`，后续替换成真实 new-api API Key。
-- `status` 必须是 `ENABLE`。
-
-## 9. 登录并确认 Redis 凭证
+## 10. 登录并确认 Redis 凭证
 
 登录：
 
 ```bash
-LOGIN_RESPONSE=$(curl -s -X POST http://127.0.0.1:${AUTH_PORT:-8080}/api/auth/login \
+LOGIN_RESPONSE=$(curl -s -X POST http://127.0.0.1:${APISIX_PORT:-9080}/model-gateway-auth/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user001",
@@ -408,7 +454,7 @@ status
 
 Redis 中不应该出现明文 `sk_xxx`。
 
-## 10. 调用 APISIX
+## 11. 调用 APISIX
 
 无 Token 验证：
 
@@ -447,54 +493,55 @@ curl -i -X POST http://127.0.0.1:${APISIX_PORT:-9080}/v1/chat/completions \
 
 如果 `new_api_api_key` 还是 `sk_xxx`，new-api 可能返回 key 无效；替换真实 key 后应返回标准 OpenAI 格式响应。
 
-## 11. 刷新 Token 并延长 Redis TTL
-
-查看刷新前 TTL：
-
-```bash
-docker exec new-api-redis redis-cli -a 123456 TTL gateway:newapi:credential:1
-```
-
-刷新：
-
-```bash
-REFRESH_RESPONSE=$(curl -s -X POST http://127.0.0.1:${AUTH_PORT:-8080}/api/auth/refresh \
-  -H "Authorization: Bearer $TOKEN")
-
-echo "$REFRESH_RESPONSE"
-TOKEN=$(echo "$REFRESH_RESPONSE" | sed -n 's/.*"accessToken":"\([^"]*\)".*/\1/p')
-```
-
-查看刷新后 TTL：
-
-```bash
-docker exec new-api-redis redis-cli -a 123456 TTL gateway:newapi:credential:1
-```
-
-刷新后 TTL 应重新接近系统配置的 JWT 过期秒数。
-
 ## 12. 停止和重启
 
-停止：
+停止认证服务：
 
 ```bash
+cd /opt/model-gateway-auth
 docker compose --env-file .env down
 ```
 
-重启：
+停止 APISIX：
 
 ```bash
+cd /opt/model-gateway-auth/apisix
+docker compose --env-file .env down
+```
+
+重启认证服务：
+
+```bash
+cd /opt/model-gateway-auth
 docker compose --env-file .env up -d --build
 ```
 
-查看日志：
+重启 APISIX：
 
 ```bash
-docker compose --env-file .env logs -f model-gateway-auth
-docker compose --env-file .env logs -f apisix
+cd /opt/model-gateway-auth/apisix
+docker compose --env-file .env up -d
 ```
 
-## 13. 常见问题
+## 13. 分开部署说明
+
+如果 APISIX 和认证服务部署在不同机器：
+
+- 根目录 `.env` 保持认证服务自己的 MySQL、Redis和密钥文件路径。
+- 认证服务部署目录保留完整 `cert/`，其中包含 JWT 私钥。
+- APISIX 部署目录只需要 `apisix/cert/` 中的 JWT 公钥、AES key 和回源密钥，不需要 JWT 私钥。
+- `apisix/.env` 中的 `AUTH_API_NODE` 改成 APISIX 能访问的认证服务节点，例如 `10.0.0.12:8080`。
+- `apisix/.env` 中的 `APISIX_CREDENTIAL_ENSURE_URL` 改成 APISIX 能访问的认证服务地址，例如：
+
+```text
+APISIX_CREDENTIAL_ENSURE_URL=http://10.0.0.12:8080/api/gateway/new-api-credential/ensure
+```
+
+- `apisix/.env` 中的 `AUTH_REDIS_HOST` 改成 APISIX 能访问的 Redis 地址。
+- `apisix/cert/gateway-jwt-public.pem`、`apisix/cert/gateway-credential-aes.key`、`apisix/cert/apisix-gateway-secret.txt` 仍然必须和认证服务侧对应文件保持一致。
+- 如果不再通过 Docker 网络访问 Redis，把 `AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=false`，并将 `AUTH_NEW_API_DOCKER_NETWORK` 设置为 APISIX 本机可创建的普通网络名。
+
+## 14. 常见问题
 
 ### Compose 提示 external network not found
 
@@ -504,33 +551,23 @@ docker compose --env-file .env logs -f apisix
 docker inspect new-api-redis --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
 ```
 
-改完后重新启动：
-
-```bash
-docker compose --env-file .env up -d --build
-```
+根目录和 `apisix/.env` 都要同步修改。
 
 ### APISIX route 没有创建
 
 先查看 `apisix-init` 日志：
 
 ```bash
+cd /opt/model-gateway-auth/apisix
 docker compose --env-file .env logs apisix-init
-```
-
-再按第 7 步查看路由：
-
-```bash
-curl -s "http://127.0.0.1:${APISIX_ADMIN_PORT:-9180}/apisix/admin/routes/model-gateway-chat-completions" \
-  -H "X-API-KEY: ${APISIX_ADMIN_KEY}"
 ```
 
 常见原因：
 
 - `APISIX_ADMIN_KEY` 和 `apisix/apisix_conf/config.yaml` 不一致。
 - APISIX 还没启动完成。
-- `new-api-redis` 所在网络没有正确配置到 `AUTH_NEW_API_DOCKER_NETWORK`。
-- 服务器代理不可用，导致 `curlimages/curl:8.11.1` 拉取失败。
+- `apisix/cert/` 中缺少 JWT 公钥、AES key 或回源密钥文件。
+- `curlimages/curl:8.11.1` 镜像暂时无法拉取。
 
 可以重新执行初始化服务：
 
@@ -538,78 +575,41 @@ curl -s "http://127.0.0.1:${APISIX_ADMIN_PORT:-9180}/apisix/admin/routes/model-g
 docker compose --env-file .env up apisix-init
 ```
 
-如果 `apisix-init` 镜像暂时无法拉取，可以执行第 7 步的备用 `curl -X PUT` 命令手动覆盖写入。
+### APISIX 无法回调认证服务
 
-### Java 服务连不上宿主机 MySQL
-
-确认 MySQL 允许当前用户从 Docker 容器访问，并检查宿主机防火墙：
+检查 `apisix/.env`：
 
 ```bash
-mysql -h 127.0.0.1 -P 3306 -unew_api -p123456 new_api
+grep '^APISIX_CREDENTIAL_ENSURE_URL=' apisix/.env
 ```
 
-Linux Docker 环境下，`docker-compose.yml` 已配置：
+同机双 Compose 默认应为：
 
 ```text
-host.docker.internal:host-gateway
+APISIX_CREDENTIAL_ENSURE_URL=http://host.docker.internal:8080/api/gateway/new-api-credential/ensure
+```
+
+分开部署时改成认证服务真实地址，并确认服务器防火墙允许 APISIX 访问认证服务端口。
+
+### APISIX 返回凭证解密失败
+
+确认根目录 `cert/` 和 `apisix/cert/` 使用同一个 AES key：
+
+```bash
+diff cert/gateway-credential-aes.key apisix/cert/gateway-credential-aes.key
 ```
 
 ### Java 服务提示 JWT 私钥无效
 
-检查 PEM 是否是一行 `\n` 格式：
+检查私钥文件是否存在且是PKCS8 PEM格式：
 
 ```bash
-grep -E 'GATEWAY_JWT_PRIVATE_KEY|GATEWAY_JWT_PUBLIC_KEY' .env
+ls -l cert/gateway-jwt-private.pem
+head -n 1 cert/gateway-jwt-private.pem
 ```
 
-值应该类似：
+第一行应该是：
 
 ```text
------BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n
-```
-
-### Compose 提示 unexpected character "/" in variable name
-
-这是 `.env` 中把 PEM 私钥或公钥按多行写入导致的。`.env` 只能写单行：
-
-```text
-GATEWAY_JWT_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nMII...\n-----END PRIVATE KEY-----\n
-```
-
-不要写成：
-
-```text
-GATEWAY_JWT_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----
-MII...
------END PRIVATE KEY-----
-```
-
-修复方式：重新执行第 4 步的 Python 写入脚本，然后再检查：
-
-```bash
-docker compose --env-file .env config
-```
-
-### APISIX 返回凭证解密失败
-
-确认 Java 和 APISIX 使用的是同一个 AES key：
-
-```bash
-grep 'GATEWAY_CREDENTIAL_AES_KEY' .env
-curl -s "http://127.0.0.1:${APISIX_ADMIN_PORT:-9180}/apisix/admin/routes/model-gateway-chat-completions" \
-  -H "X-API-KEY: ${APISIX_ADMIN_KEY}"
-```
-
-### APISIX 无法回源到 Java 服务
-
-Compose 内部 route 使用：
-
-```text
-http://model-gateway-auth:8080/api/gateway/new-api-credential/ensure
-```
-
-检查服务是否在同一个网络：
-
-```bash
-docker compose --env-file .env exec apisix curl -i http://model-gateway-auth:8080/api/auth/login
+-----BEGIN PRIVATE KEY-----
 ```

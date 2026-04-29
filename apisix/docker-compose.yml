@@ -1,7 +1,7 @@
 services:
   etcd:
     image: docker.m.daocloud.io/bitnamilegacy/etcd:3.5
-    container_name: apisix-local-etcd
+    container_name: apisix-etcd
     restart: unless-stopped
     environment:
       ALLOW_NONE_AUTHENTICATION: "yes"
@@ -14,29 +14,132 @@ services:
 
   apisix:
     image: docker.m.daocloud.io/apache/apisix:3.9.1-debian
-    container_name: apisix-local
+    container_name: apisix
     restart: unless-stopped
     depends_on:
       - etcd
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
-      - "9080:9080"
-      - "9180:9180"
-      - "9091:9091"
+      - "${APISIX_PORT:-9080}:9080"
+      - "${APISIX_ADMIN_PORT:-9180}:9180"
+      - "${APISIX_METRICS_PORT:-9091}:9091"
     volumes:
       - ./apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
       - ./apisix_plugins/model-gateway-auth.lua:/usr/local/apisix/apisix/plugins/model-gateway-auth.lua:ro
     networks:
       - apisix
+      - new-api-network
+
+  apisix-init:
+    image: curlimages/curl:8.11.1
+    container_name: apisix-init
+    depends_on:
+      - apisix
+    restart: "no"
+    environment:
+      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY:-api-admin-key-1234567654321}
+      GATEWAY_JWT_PUBLIC_KEY_FILE: ${GATEWAY_JWT_PUBLIC_KEY_FILE:-/cert/gateway-jwt-public.pem}
+      APISIX_GATEWAY_SECRET_FILE: ${APISIX_GATEWAY_SECRET_FILE:-/cert/apisix-gateway-secret.txt}
+      APISIX_AES_KEY_ID: ${GATEWAY_CREDENTIAL_KEY_ID:-main}
+      GATEWAY_CREDENTIAL_AES_KEY_FILE: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:-/cert/gateway-credential-aes.key}
+      APISIX_REDIS_HOST: ${AUTH_REDIS_HOST:-new-api-redis}
+      APISIX_REDIS_PORT: ${AUTH_REDIS_PORT:-6379}
+      APISIX_REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD:-123456}
+      APISIX_CREDENTIAL_ENSURE_URL: ${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8080/api/gateway/new-api-credential/ensure}
+      AUTH_API_NODE: ${AUTH_API_NODE:-host.docker.internal:8080}
+      AUTH_API_ROUTE_PREFIX: ${AUTH_API_ROUTE_PREFIX:-/model-gateway-auth}
+      NEW_API_NODE: ${NEW_API_NODE:-120.53.240.51:3000}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        APISIX_JWT_PUBLIC_KEY="$$(awk '{printf "%s\\n", $$0}' "$$GATEWAY_JWT_PUBLIC_KEY_FILE")"
+        APISIX_AES_KEY="$$(tr -d '\r\n' < "$$GATEWAY_CREDENTIAL_AES_KEY_FILE")"
+        APISIX_GATEWAY_SECRET="$$(tr -d '\r\n' < "$$APISIX_GATEWAY_SECRET_FILE")"
+        cat > /tmp/chat-route.json <<EOF
+        {
+          "name": "model-gateway-chat-completions",
+          "uri": "/v1/chat/completions",
+          "methods": ["POST"],
+          "plugins": {
+            "model-gateway-auth": {
+              "jwt_public_key": "$$APISIX_JWT_PUBLIC_KEY",
+              "jwt_issuer": "model-gateway-auth",
+              "jwt_audience": "apisix-llm-gateway",
+              "redis_host": "$$APISIX_REDIS_HOST",
+              "redis_port": $$APISIX_REDIS_PORT,
+              "redis_database": 0,
+              "redis_password": "$$APISIX_REDIS_PASSWORD",
+              "credential_ensure_url": "$$APISIX_CREDENTIAL_ENSURE_URL",
+              "gateway_secret": "$$APISIX_GATEWAY_SECRET",
+              "aes_keys": {
+                "$$APISIX_AES_KEY_ID": "$$APISIX_AES_KEY"
+              }
+            }
+          },
+          "upstream": {
+            "type": "roundrobin",
+            "scheme": "http",
+            "pass_host": "node",
+            "nodes": {
+              "$$NEW_API_NODE": 1
+            }
+          }
+        }
+        EOF
+        cat > /tmp/auth-api-route.json <<EOF
+        {
+          "name": "model-gateway-auth-api",
+          "uri": "$$AUTH_API_ROUTE_PREFIX/*",
+          "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+          "plugins": {
+            "proxy-rewrite": {
+              "regex_uri": ["^$$AUTH_API_ROUTE_PREFIX/(.*)", "/\$$1"]
+            }
+          },
+          "upstream": {
+            "type": "roundrobin",
+            "scheme": "http",
+            "pass_host": "node",
+            "nodes": {
+              "$$AUTH_API_NODE": 1
+            }
+          }
+        }
+        EOF
+        for i in $$(seq 1 60); do
+          if curl -fsS -X PUT "http://apisix:9180/apisix/admin/routes/model-gateway-auth-api" \
+            -H "X-API-KEY: $$APISIX_ADMIN_KEY" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/auth-api-route.json \
+            && curl -fsS -X PUT "http://apisix:9180/apisix/admin/routes/model-gateway-chat-completions" \
+            -H "X-API-KEY: $$APISIX_ADMIN_KEY" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/chat-route.json; then
+            echo "APISIX routes model-gateway-auth-api and model-gateway-chat-completions configured"
+            exit 0
+          fi
+          echo "Waiting for APISIX admin API..."
+          sleep 2
+        done
+        echo "Failed to configure APISIX route" >&2
+        exit 1
+    volumes:
+      - ./cert:/cert:ro
+    networks:
+      - apisix
 
   dashboard:
     image: docker.m.daocloud.io/apache/apisix-dashboard:3.0.1-alpine
-    container_name: apisix-local-dashboard
+    container_name: apisix-dashboard
     restart: unless-stopped
     depends_on:
       - etcd
       - apisix
     ports:
-      - "9000:9000"
+      - "${APISIX_DASHBOARD_PORT:-9000}:9000"
     volumes:
       - ./dashboard_conf/conf.yaml:/usr/local/apisix-dashboard/conf/conf.yaml:ro
     networks:
@@ -45,6 +148,9 @@ services:
 networks:
   apisix:
     driver: bridge
+  new-api-network:
+    external: ${AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL:-true}
+    name: ${AUTH_NEW_API_DOCKER_NETWORK:-new-api_default}
 
 volumes:
   etcd_data:
