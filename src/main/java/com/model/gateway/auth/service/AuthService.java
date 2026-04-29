@@ -26,6 +26,8 @@ public interface AuthService {
 
     /**
      * 执行用户登出。
+     *
+     * @param authorization Authorization请求头
      */
-    void logout();
+    void logout(String authorization);
 }

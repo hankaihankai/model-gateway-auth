@@ -6,6 +6,7 @@ import com.model.gateway.auth.common.UserStatusEnum;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.dto.LoginRequest;
 import com.model.gateway.auth.exception.AuthException;
+import com.model.gateway.auth.service.GatewayCredentialCacheService;
 import com.model.gateway.auth.mapper.UserMapper;
 import com.model.gateway.auth.service.AuthService;
 import com.model.gateway.auth.service.GatewayJwtService;
@@ -44,22 +45,30 @@ public class AuthServiceImpl implements AuthService {
     private final GatewayJwtService gatewayJwtService;
 
     /**
+     * 网关凭证缓存服务。
+     */
+    private final GatewayCredentialCacheService gatewayCredentialCacheService;
+
+    /**
      * 创建认证业务服务实现。
      *
      * @param userMapper 用户数据访问对象
      * @param passwordEncoder BCrypt密码编码器
      * @param newApiBindingService new-api绑定业务服务
      * @param gatewayJwtService 网关JWT服务
+     * @param gatewayCredentialCacheService 网关凭证缓存服务
      */
     public AuthServiceImpl(
             UserMapper userMapper,
             BCryptPasswordEncoder passwordEncoder,
             NewApiBindingService newApiBindingService,
-            GatewayJwtService gatewayJwtService) {
+            GatewayJwtService gatewayJwtService,
+            GatewayCredentialCacheService gatewayCredentialCacheService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.newApiBindingService = newApiBindingService;
         this.gatewayJwtService = gatewayJwtService;
+        this.gatewayCredentialCacheService = gatewayCredentialCacheService;
     }
 
     /**
@@ -107,10 +116,13 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * 执行用户登出。
+     *
+     * @param authorization Authorization请求头
      */
     @Override
-    public void logout() {
-        StpUtil.logout();
+    public void logout(String authorization) {
+        Claims claims = gatewayJwtService.parseToken(gatewayJwtService.extractBearerToken(authorization));
+        gatewayCredentialCacheService.deleteCredential(Long.valueOf(claims.getSubject()));
     }
 
     /**

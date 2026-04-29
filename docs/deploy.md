@@ -58,10 +58,10 @@ url: redis://:123456@new-api-redis:6379/0
 确认 Redis 容器所在 Docker 网络：
 
 ```bash
-docker inspect new-api-redis --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
+docker network ls
 ```
 
-把输出值同时写到根目录 `.env` 和 `apisix/.env` 的 `AUTH_NEW_API_DOCKER_NETWORK`。例如输出是 `new-api_default`：
+选一个网络把输出值同时写到根目录 `.env` 和 `apisix/.env` 的 `AUTH_NEW_API_DOCKER_NETWORK`。例如输出是 `new-api_default`：
 
 ```text
 AUTH_NEW_API_DOCKER_NETWORK=new-api_default

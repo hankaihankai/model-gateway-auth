@@ -56,11 +56,12 @@ public class AuthController {
     /**
      * 用户登出接口。
      *
+     * @param authorization Authorization请求头
      * @return 登出结果
      */
     @PostMapping("/logout")
-    public ApiResponse<Boolean> logout() {
-        authService.logout();
+    public ApiResponse<Boolean> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        authService.logout(authorization);
         return ApiResponse.success(Boolean.TRUE);
     }
 }
