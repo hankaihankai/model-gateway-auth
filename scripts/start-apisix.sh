@@ -110,7 +110,26 @@ echo ""
 echo "[3/7] 检查 Admin Key 一致性..."
 
 ENV_ADMIN_KEY=$(grep -E '^APISIX_ADMIN_KEY=' "$ENV_FILE" | cut -d= -f2- || true)
-CONFIG_ADMIN_KEY=$(grep -E 'admin_key:' "$APISIX_DIR/apisix_conf/config.yaml" -A 2 | grep 'key:' | head -n 1 | sed 's/.*key:\s*//' | tr -d ' "' || true)
+CONFIG_ADMIN_KEY=$(awk '
+  /admin_key:/ { in_admin = 1; next }
+  in_admin && /^[[:space:]]*key:/ {
+    sub(/#.*/, "")
+    sub(/^[[:space:]]*key:[[:space:]]*/, "")
+    gsub(/[[:space:]"]/, "")
+    print
+    exit
+  }
+' "$APISIX_DIR/apisix_conf/config.yaml" || true)
+
+if [[ -z "$ENV_ADMIN_KEY" ]]; then
+  echo "  ✗ APISIX_ADMIN_KEY 未配置，请在 apisix/.env 中手动配置"
+  exit 1
+fi
+
+if [[ -z "$CONFIG_ADMIN_KEY" ]]; then
+  echo "  ✗ apisix_conf/config.yaml 中未配置 Admin Key"
+  exit 1
+fi
 
 if [[ -n "$ENV_ADMIN_KEY" && -n "$CONFIG_ADMIN_KEY" && "$ENV_ADMIN_KEY" != "$CONFIG_ADMIN_KEY" ]]; then
   echo "  ✗ .env 中的 APISIX_ADMIN_KEY 与 apisix_conf/config.yaml 不一致"
@@ -120,6 +139,17 @@ if [[ -n "$ENV_ADMIN_KEY" && -n "$CONFIG_ADMIN_KEY" && "$ENV_ADMIN_KEY" != "$CON
 fi
 
 echo "  ✓ Admin Key 一致"
+
+AUTH_REDIS_URL=$(grep -E '^AUTH_REDIS_URL=' "$ENV_FILE" | cut -d= -f2- || true)
+if [[ -z "$AUTH_REDIS_URL" ]]; then
+  echo "  ✗ AUTH_REDIS_URL 未配置，请在 apisix/.env 中手动配置"
+  exit 1
+fi
+
+if [[ "$AUTH_REDIS_URL" != redis://* && "$AUTH_REDIS_URL" != rediss://* ]]; then
+  echo "  ✗ AUTH_REDIS_URL 格式不正确，应类似 redis://:password@host:6379/0"
+  exit 1
+fi
 
 # 4. 检查 Docker 网络
 echo ""
@@ -167,10 +197,12 @@ echo ""
 echo "[7/7] 等待路由初始化..."
 
 APISIX_ADMIN_KEY=$(grep -E '^APISIX_ADMIN_KEY=' "$ENV_FILE" | cut -d= -f2-)
-APISIX_ADMIN_PORT=$(grep -E '^APISIX_ADMIN_PORT=' "$ENV_FILE" | cut -d= -f2-)
+APISIX_ADMIN_PORT=$(grep -E '^APISIX_ADMIN_PORT=' "$ENV_FILE" | cut -d= -f2- || true)
 APISIX_ADMIN_PORT=${APISIX_ADMIN_PORT:-9180}
-APISIX_PORT=$(grep -E '^APISIX_PORT=' "$ENV_FILE" | cut -d= -f2-)
+APISIX_PORT=$(grep -E '^APISIX_PORT=' "$ENV_FILE" | cut -d= -f2- || true)
 APISIX_PORT=${APISIX_PORT:-9080}
+APISIX_DASHBOARD_PORT=$(grep -E '^APISIX_DASHBOARD_PORT=' "$ENV_FILE" | cut -d= -f2- || true)
+APISIX_DASHBOARD_PORT=${APISIX_DASHBOARD_PORT:-9000}
 
 # 等待 apisix-init 完成
 for i in $(seq 1 60); do

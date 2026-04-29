@@ -102,18 +102,31 @@ echo "[4/6] 检查外部依赖..."
 MYSQL_URL=$(grep -E '^AUTH_MYSQL_URL=' "$ENV_FILE" | cut -d= -f2- || true)
 MYSQL_USER=$(grep -E '^AUTH_MYSQL_USERNAME=' "$ENV_FILE" | cut -d= -f2- || true)
 MYSQL_PASS=$(grep -E '^AUTH_MYSQL_PASSWORD=' "$ENV_FILE" | cut -d= -f2- || true)
-MYSQL_USER=${MYSQL_USER:-new_api}
-MYSQL_PASS=${MYSQL_PASS:-123456}
+
+if [[ -z "$MYSQL_URL" ]]; then
+  echo "  ✗ AUTH_MYSQL_URL 未配置，请在 .env 中手动配置 MySQL JDBC URL"
+  exit 1
+fi
+
+if [[ -z "$MYSQL_USER" ]]; then
+  echo "  ✗ AUTH_MYSQL_USERNAME 未配置，请在 .env 中手动配置 MySQL 用户名"
+  exit 1
+fi
+
+if [[ -z "$MYSQL_PASS" ]]; then
+  echo "  ✗ AUTH_MYSQL_PASSWORD 未配置，请在 .env 中手动配置 MySQL 密码"
+  exit 1
+fi
 
 # 尝试从 JDBC URL 提取 host:port
-if [[ -n "$MYSQL_URL" ]]; then
-  MYSQL_HOSTPORT=$(echo "$MYSQL_URL" | sed -n 's/.*mysql:\/\/\([^/]*\).*/\1/p')
-  MYSQL_HOST=${MYSQL_HOSTPORT%:*}
-  MYSQL_PORT=${MYSQL_HOSTPORT##*:}
-  MYSQL_HOST=${MYSQL_HOST:-127.0.0.1}
-  MYSQL_PORT=${MYSQL_PORT:-3306}
-else
-  MYSQL_HOST=127.0.0.1
+MYSQL_HOSTPORT=$(echo "$MYSQL_URL" | sed -n 's/.*mysql:\/\/\([^/?]*\).*/\1/p')
+if [[ -z "$MYSQL_HOSTPORT" ]]; then
+  echo "  ✗ AUTH_MYSQL_URL 格式不正确，应类似 jdbc:mysql://host:3306/database?参数"
+  exit 1
+fi
+MYSQL_HOST=${MYSQL_HOSTPORT%:*}
+MYSQL_PORT=${MYSQL_HOSTPORT##*:}
+if [[ "$MYSQL_HOST" == "$MYSQL_PORT" ]]; then
   MYSQL_PORT=3306
 fi
 
@@ -126,18 +139,48 @@ else
 fi
 
 REDIS_URL=$(grep -E '^AUTH_REDIS_URL=' "$ENV_FILE" | cut -d= -f2- || true)
-if [[ -n "$REDIS_URL" ]]; then
-  REDIS_HOST=$(echo "$REDIS_URL" | sed -n 's/.*@\([^:@]*\):.*/\1/p')
-  REDIS_PORT=$(echo "$REDIS_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
-  REDIS_HOST=${REDIS_HOST:-new-api-redis}
-  REDIS_PORT=${REDIS_PORT:-6379}
+if [[ -z "$REDIS_URL" ]]; then
+  echo "  ✗ AUTH_REDIS_URL 未配置，请在 .env 中手动配置 Redis URL"
+  exit 1
+fi
+
+if [[ "$REDIS_URL" != redis://* && "$REDIS_URL" != rediss://* ]]; then
+  echo "  ✗ AUTH_REDIS_URL 格式不正确，应类似 redis://:password@host:6379/0"
+  exit 1
+fi
+
+REDIS_AUTHORITY=${REDIS_URL#*://}
+REDIS_AUTHORITY=${REDIS_AUTHORITY%%/*}
+if [[ "$REDIS_AUTHORITY" == *"@"* ]]; then
+  REDIS_USERINFO=${REDIS_AUTHORITY%@*}
+  REDIS_HOSTPORT=${REDIS_AUTHORITY#*@}
+  if [[ "$REDIS_USERINFO" == *":"* ]]; then
+    REDIS_PASS=${REDIS_USERINFO#*:}
+  else
+    REDIS_PASS=$REDIS_USERINFO
+  fi
 else
-  REDIS_HOST=new-api-redis
+  REDIS_HOSTPORT=$REDIS_AUTHORITY
+  REDIS_PASS=""
+fi
+REDIS_HOST=${REDIS_HOSTPORT%:*}
+REDIS_PORT=${REDIS_HOSTPORT##*:}
+if [[ "$REDIS_HOST" == "$REDIS_PORT" ]]; then
   REDIS_PORT=6379
 fi
 
+if [[ -z "$REDIS_HOST" ]]; then
+  echo "  ✗ AUTH_REDIS_URL 未解析到 Redis 主机，请检查 .env"
+  exit 1
+fi
+
+if [[ -z "$REDIS_PASS" ]]; then
+  echo "  ✗ AUTH_REDIS_URL 未配置 Redis 密码，请在 .env 中手动配置"
+  exit 1
+fi
+
 echo -n "  Redis ($REDIS_HOST:$REDIS_PORT) ... "
-if docker exec "$REDIS_HOST" redis-cli -p "$REDIS_PORT" ping 2>/dev/null | grep -q PONG; then
+if docker exec "$REDIS_HOST" redis-cli -a "$REDIS_PASS" -p "$REDIS_PORT" ping 2>/dev/null | grep -q PONG; then
   echo "✓ 可连接"
 else
   echo "? 未通过 docker exec 检测到（如果 Redis 不在本机 Docker 中，请手动确认）"
