@@ -7,6 +7,8 @@ local jwt = require("resty.jwt")
 local http = require("resty.http")
 local redis_util = require("apisix.utils.redis")
 local cipher = require("resty.openssl.cipher")
+local sha256 = require("resty.sha256")
+local resty_string = require("resty.string")
 
 local ngx = ngx
 local str_sub = string.sub
@@ -19,6 +21,7 @@ local type = type
 local plugin_name = "model-gateway-auth"
 local credential_status_enable = "ENABLE"
 local redis_key_prefix = "gateway:newapi:credential:"
+local jwt_blacklist_key_prefix = "gateway:jwt:blacklist:"
 local aes_gcm_iv_size = 12
 local aes_gcm_tag_size = 16
 local build_redis_conf
@@ -201,6 +204,38 @@ local function read_redis_credential(conf, user_id)
     end
 
     return credential
+end
+
+-- 构建JWT黑名单Redis Key。
+local function build_jwt_blacklist_key(token)
+    local digest = sha256:new()
+    digest:update(token)
+    return jwt_blacklist_key_prefix .. resty_string.to_hex(digest:final())
+end
+
+-- 查询JWT是否已注销。
+local function is_jwt_blacklisted(conf, token)
+    local red, err = redis_util.new(conf)
+    if not red then
+        core.log.error("redis connect failed: ", err)
+        return nil, "redis_error"
+    end
+
+    local exists, exists_err = red:exists(build_jwt_blacklist_key(token))
+    local ok, keepalive_err = red:set_keepalive(
+        conf.redis_keepalive_timeout,
+        conf.redis_keepalive_pool
+    )
+    if not ok then
+        core.log.warn("redis set_keepalive failed: ", keepalive_err)
+    end
+
+    if exists_err then
+        core.log.error("redis get jwt blacklist failed: ", exists_err)
+        return nil, "redis_error"
+    end
+
+    return exists == 1 or exists == true
 end
 
 -- 调用用户系统补齐凭证。
@@ -429,6 +464,14 @@ function _M.rewrite(conf, ctx)
     if not redis_conf then
         core.log.error("redis config invalid: ", redis_conf_err)
         return reject(503, "凭证缓存暂不可用")
+    end
+
+    local blacklisted, blacklist_state = is_jwt_blacklisted(redis_conf, token)
+    if blacklist_state == "redis_error" then
+        return reject(503, "凭证缓存暂不可用")
+    end
+    if blacklisted then
+        return reject(401, "Token无效或已过期")
     end
 
     local credential, cache_state = read_redis_credential(redis_conf, jwt_info.user_id)

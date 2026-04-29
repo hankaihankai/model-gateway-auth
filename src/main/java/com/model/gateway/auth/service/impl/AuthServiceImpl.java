@@ -121,8 +121,10 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public void logout(String authorization) {
-        Claims claims = gatewayJwtService.parseToken(gatewayJwtService.extractBearerToken(authorization));
+        String token = gatewayJwtService.extractBearerToken(authorization);
+        Claims claims = gatewayJwtService.parseToken(token);
         gatewayCredentialCacheService.deleteCredential(Long.valueOf(claims.getSubject()));
+        gatewayCredentialCacheService.blacklistJwt(token, claims.getExpiration());
     }
 
     /**

@@ -6,6 +6,7 @@ import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.exception.AuthException;
 import com.model.gateway.auth.exception.AuthStatusException;
 import com.model.gateway.auth.mapper.UserMapper;
+import com.model.gateway.auth.service.GatewayCredentialCacheService;
 import com.model.gateway.auth.service.GatewayJwtService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,14 +37,24 @@ public class GatewayJwtAuthInterceptor implements HandlerInterceptor {
     private final UserMapper userMapper;
 
     /**
+     * 网关凭证缓存服务。
+     */
+    private final GatewayCredentialCacheService gatewayCredentialCacheService;
+
+    /**
      * 创建网关JWT接口鉴权拦截器。
      *
      * @param gatewayJwtService 网关JWT服务
      * @param userMapper 用户数据访问对象
+     * @param gatewayCredentialCacheService 网关凭证缓存服务
      */
-    public GatewayJwtAuthInterceptor(GatewayJwtService gatewayJwtService, UserMapper userMapper) {
+    public GatewayJwtAuthInterceptor(
+            GatewayJwtService gatewayJwtService,
+            UserMapper userMapper,
+            GatewayCredentialCacheService gatewayCredentialCacheService) {
         this.gatewayJwtService = gatewayJwtService;
         this.userMapper = userMapper;
+        this.gatewayCredentialCacheService = gatewayCredentialCacheService;
     }
 
     /**
@@ -73,7 +84,11 @@ public class GatewayJwtAuthInterceptor implements HandlerInterceptor {
     private SysUser readCurrentUser(HttpServletRequest request) {
         try {
             String authorization = request.getHeader("Authorization");
-            Claims claims = gatewayJwtService.parseToken(gatewayJwtService.extractBearerToken(authorization));
+            String token = gatewayJwtService.extractBearerToken(authorization);
+            Claims claims = gatewayJwtService.parseToken(token);
+            if (gatewayCredentialCacheService.isJwtBlacklisted(token)) {
+                throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token无效或已过期");
+            }
             SysUser user = userMapper.selectByUserId(Long.valueOf(claims.getSubject()));
             if (user == null) {
                 throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "用户不存在");
