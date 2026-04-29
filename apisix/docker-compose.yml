@@ -32,7 +32,7 @@ services:
       - new-api-network
 
   apisix-init:
-    image: curlimages/curl:8.11.1
+    image: docker.m.daocloud.io/curlimages/curl:8.11.1
     container_name: apisix-init
     depends_on:
       - apisix
@@ -46,8 +46,8 @@ services:
       APISIX_REDIS_HOST: ${AUTH_REDIS_HOST:-new-api-redis}
       APISIX_REDIS_PORT: ${AUTH_REDIS_PORT:-6379}
       APISIX_REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD:-123456}
-      APISIX_CREDENTIAL_ENSURE_URL: ${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8080/api/gateway/new-api-credential/ensure}
-      AUTH_API_NODE: ${AUTH_API_NODE:-host.docker.internal:8080}
+      APISIX_CREDENTIAL_ENSURE_URL: ${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8188/api/gateway/new-api-credential/ensure}
+      AUTH_API_NODE: ${AUTH_API_NODE:-host.docker.internal:8188}
       AUTH_API_ROUTE_PREFIX: ${AUTH_API_ROUTE_PREFIX:-/model-gateway-auth}
       NEW_API_NODE: ${NEW_API_NODE:-120.53.240.51:3000}
     command:
@@ -113,10 +113,12 @@ services:
           if curl -fsS -X PUT "http://apisix:9180/apisix/admin/routes/model-gateway-auth-api" \
             -H "X-API-KEY: $$APISIX_ADMIN_KEY" \
             -H "Content-Type: application/json" \
+            -o /dev/null \
             --data-binary @/tmp/auth-api-route.json \
             && curl -fsS -X PUT "http://apisix:9180/apisix/admin/routes/model-gateway-chat-completions" \
             -H "X-API-KEY: $$APISIX_ADMIN_KEY" \
             -H "Content-Type: application/json" \
+            -o /dev/null \
             --data-binary @/tmp/chat-route.json; then
             echo "APISIX routes model-gateway-auth-api and model-gateway-chat-completions configured"
             exit 0

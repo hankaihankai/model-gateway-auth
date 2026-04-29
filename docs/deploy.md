@@ -92,7 +92,7 @@ AUTH_REDIS_PORT=6379
 AUTH_REDIS_PASSWORD=123456
 AUTH_NEW_API_DOCKER_NETWORK=new-api_default
 
-AUTH_PORT=8080
+AUTH_PORT=8188
 
 GATEWAY_JWT_PRIVATE_KEY_FILE=/app/cert/gateway-jwt-private.pem
 GATEWAY_JWT_PUBLIC_KEY_FILE=/app/cert/gateway-jwt-public.pem
@@ -113,9 +113,9 @@ APISIX_DASHBOARD_PORT=9000
 
 APISIX_ADMIN_KEY=api-admin-key-1234567654321
 NEW_API_NODE=120.53.240.51:3000
-AUTH_API_NODE=host.docker.internal:8080
+AUTH_API_NODE=host.docker.internal:8188
 AUTH_API_ROUTE_PREFIX=/model-gateway-auth
-APISIX_CREDENTIAL_ENSURE_URL=http://host.docker.internal:8080/api/gateway/new-api-credential/ensure
+APISIX_CREDENTIAL_ENSURE_URL=http://host.docker.internal:8188/api/gateway/new-api-credential/ensure
 
 AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=true
 AUTH_NEW_API_DOCKER_NETWORK=new-api_default
@@ -276,7 +276,7 @@ curl -s "http://127.0.0.1:${APISIX_ADMIN_PORT}/apisix/admin/routes/model-gateway
 
 ```bash
 AUTH_API_NODE=$(grep -E '^AUTH_API_NODE=' .env | cut -d= -f2-)
-AUTH_API_NODE=${AUTH_API_NODE:-host.docker.internal:8080}
+AUTH_API_NODE=${AUTH_API_NODE:-host.docker.internal:8188}
 AUTH_API_ROUTE_PREFIX=$(grep -E '^AUTH_API_ROUTE_PREFIX=' .env | cut -d= -f2-)
 AUTH_API_ROUTE_PREFIX=${AUTH_API_ROUTE_PREFIX:-/model-gateway-auth}
 
@@ -315,7 +315,7 @@ curl -i -X PUT "http://127.0.0.1:${APISIX_ADMIN_PORT}/apisix/admin/routes/model-
 NEW_API_NODE=$(grep -E '^NEW_API_NODE=' .env | cut -d= -f2-)
 NEW_API_NODE=${NEW_API_NODE:-120.53.240.51:3000}
 APISIX_CREDENTIAL_ENSURE_URL=$(grep -E '^APISIX_CREDENTIAL_ENSURE_URL=' .env | cut -d= -f2-)
-APISIX_CREDENTIAL_ENSURE_URL=${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8080/api/gateway/new-api-credential/ensure}
+APISIX_CREDENTIAL_ENSURE_URL=${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8188/api/gateway/new-api-credential/ensure}
 AUTH_REDIS_HOST=$(grep -E '^AUTH_REDIS_HOST=' .env | cut -d= -f2-)
 AUTH_REDIS_HOST=${AUTH_REDIS_HOST:-new-api-redis}
 AUTH_REDIS_PORT=$(grep -E '^AUTH_REDIS_PORT=' .env | cut -d= -f2-)
@@ -530,11 +530,11 @@ docker compose --env-file .env up -d
 - 根目录 `.env` 保持认证服务自己的 MySQL、Redis和密钥文件路径。
 - 认证服务部署目录保留完整 `cert/`，其中包含 JWT 私钥。
 - APISIX 部署目录只需要 `apisix/cert/` 中的 JWT 公钥、AES key 和回源密钥，不需要 JWT 私钥。
-- `apisix/.env` 中的 `AUTH_API_NODE` 改成 APISIX 能访问的认证服务节点，例如 `10.0.0.12:8080`。
+- `apisix/.env` 中的 `AUTH_API_NODE` 改成 APISIX 能访问的认证服务节点，例如 `10.0.0.12:8188`。
 - `apisix/.env` 中的 `APISIX_CREDENTIAL_ENSURE_URL` 改成 APISIX 能访问的认证服务地址，例如：
 
 ```text
-APISIX_CREDENTIAL_ENSURE_URL=http://10.0.0.12:8080/api/gateway/new-api-credential/ensure
+APISIX_CREDENTIAL_ENSURE_URL=http://10.0.0.12:8188/api/gateway/new-api-credential/ensure
 ```
 
 - `apisix/.env` 中的 `AUTH_REDIS_HOST` 改成 APISIX 能访问的 Redis 地址。
@@ -586,7 +586,7 @@ grep '^APISIX_CREDENTIAL_ENSURE_URL=' apisix/.env
 同机双 Compose 默认应为：
 
 ```text
-APISIX_CREDENTIAL_ENSURE_URL=http://host.docker.internal:8080/api/gateway/new-api-credential/ensure
+APISIX_CREDENTIAL_ENSURE_URL=http://host.docker.internal:8188/api/gateway/new-api-credential/ensure
 ```
 
 分开部署时改成认证服务真实地址，并确认服务器防火墙允许 APISIX 访问认证服务端口。
