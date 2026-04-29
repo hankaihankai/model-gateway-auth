@@ -5,7 +5,7 @@
 - 根目录 `docker-compose.yml`：只启动 `model-gateway-auth` 认证服务。
 - `apisix/docker-compose.yml`：启动 APISIX、etcd、Dashboard，并通过 `apisix-init` 自动配置 APISIX 路由。
 
-MySQL 和 Redis 不由本项目创建。MySQL 使用宿主机已有实例，Redis 使用已有 Docker 容器 `new-api-redis`。APISIX 和认证服务后续可以分开部署，分开部署时只需要让 `apisix/.env` 中的认证服务回调地址和 Redis 地址对 APISIX 可达。
+MySQL 和 Redis 不由本项目创建。认证服务通过 MySQL JDBC URL 和 Redis URL 连接外部服务，APISIX 也通过 Redis URL 访问同一个 Redis。APISIX 和认证服务后续可以分开部署，分开部署时只需要让各自 `.env` 中的 URL 地址对当前服务可达。
 
 ## 1. 上传代码
 
@@ -41,21 +41,18 @@ cd /opt/model-gateway-auth
 
 ## 2. 确认外部 MySQL 和 Redis
 
-MySQL 默认使用宿主机连接：
+MySQL 默认通过 JDBC URL 连接：
 
 ```text
-host.docker.internal:3306
-database: new_api
+url: jdbc:mysql://host.docker.internal:3306/new_api?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
 username: new_api
 password: 123456
 ```
 
-Redis 默认复用已有 Docker 容器：
+Redis 默认通过 URL 复用已有 Docker 容器：
 
 ```text
-container: new-api-redis
-port: 6379
-password: 123456
+url: redis://:123456@new-api-redis:6379/0
 ```
 
 确认 Redis 容器所在 Docker 网络：
@@ -81,15 +78,11 @@ mysql -h 127.0.0.1 -P 3306 -unew_api -p123456 new_api < docs/database.sql
 根目录 `.env` 只负责认证服务启动：
 
 ```env
-AUTH_MYSQL_HOST=host.docker.internal
-AUTH_MYSQL_PORT=3306
-AUTH_MYSQL_DATABASE=new_api
+AUTH_MYSQL_URL=jdbc:mysql://host.docker.internal:3306/new_api?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
 AUTH_MYSQL_USERNAME=new_api
 AUTH_MYSQL_PASSWORD=123456
 
-AUTH_REDIS_HOST=new-api-redis
-AUTH_REDIS_PORT=6379
-AUTH_REDIS_PASSWORD=123456
+AUTH_REDIS_URL=redis://:123456@new-api-redis:6379/0
 AUTH_NEW_API_DOCKER_NETWORK=new-api_default
 
 AUTH_PORT=8188
@@ -119,9 +112,7 @@ APISIX_CREDENTIAL_ENSURE_URL=http://host.docker.internal:8188/api/gateway/new-ap
 
 AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=true
 AUTH_NEW_API_DOCKER_NETWORK=new-api_default
-AUTH_REDIS_HOST=new-api-redis
-AUTH_REDIS_PORT=6379
-AUTH_REDIS_PASSWORD=123456
+AUTH_REDIS_URL=redis://:123456@new-api-redis:6379/0
 
 GATEWAY_JWT_PUBLIC_KEY_FILE=/cert/gateway-jwt-public.pem
 GATEWAY_CREDENTIAL_KEY_ID=main
@@ -137,7 +128,8 @@ APISIX_GATEWAY_SECRET_FILE=/cert/apisix-gateway-secret.txt
 - `AUTH_API_NODE` 是 APISIX 转发认证服务 API 的上游节点。
 - `AUTH_API_ROUTE_PREFIX` 是认证服务项目对外路由前缀，默认 `/model-gateway-auth`，APISIX 会去掉此前缀后原样转发到认证服务。
 - 同机双 Compose 默认使用 `host.docker.internal` 回调认证服务；分开部署时把 `APISIX_CREDENTIAL_ENSURE_URL` 改成 APISIX 能访问到的认证服务地址。
-- `AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=true` 表示 APISIX 复用已有 Docker 网络访问 `new-api-redis`；分开部署且 Redis 通过 IP 或域名访问时，可以改成 `false` 并把 `AUTH_NEW_API_DOCKER_NETWORK` 改成任意本地网络名。
+- `AUTH_REDIS_URL` 是 APISIX 访问 Redis 的完整地址，格式为 `redis://[:password@]host:port/database`；密码包含特殊字符时需要 URL 编码。
+- `AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=true` 表示 APISIX 复用已有 Docker 网络访问 `new-api-redis`；分开部署且 Redis 通过 IP 或域名访问时，可以改成 `false` 并把 `AUTH_NEW_API_DOCKER_NETWORK` 改成任意本地网络名，同时把 `AUTH_REDIS_URL` 改成 APISIX 能访问的 Redis 地址。
 
 ## 5. 生成密钥
 
@@ -251,6 +243,8 @@ APISIX routes model-gateway-auth-api and model-gateway-chat-completions configur
 APISIX_ADMIN_KEY=$(grep -E '^APISIX_ADMIN_KEY=' .env | cut -d= -f2-)
 APISIX_ADMIN_PORT=$(grep -E '^APISIX_ADMIN_PORT=' .env | cut -d= -f2-)
 APISIX_ADMIN_PORT=${APISIX_ADMIN_PORT:-9180}
+APISIX_PORT=$(grep -E '^APISIX_PORT=' .env | cut -d= -f2-)
+APISIX_PORT=${APISIX_PORT:-9080}
 ```
 
 确认 APISIX Admin API 可访问：
@@ -316,12 +310,8 @@ NEW_API_NODE=$(grep -E '^NEW_API_NODE=' .env | cut -d= -f2-)
 NEW_API_NODE=${NEW_API_NODE:-120.53.240.51:3000}
 APISIX_CREDENTIAL_ENSURE_URL=$(grep -E '^APISIX_CREDENTIAL_ENSURE_URL=' .env | cut -d= -f2-)
 APISIX_CREDENTIAL_ENSURE_URL=${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8188/api/gateway/new-api-credential/ensure}
-AUTH_REDIS_HOST=$(grep -E '^AUTH_REDIS_HOST=' .env | cut -d= -f2-)
-AUTH_REDIS_HOST=${AUTH_REDIS_HOST:-new-api-redis}
-AUTH_REDIS_PORT=$(grep -E '^AUTH_REDIS_PORT=' .env | cut -d= -f2-)
-AUTH_REDIS_PORT=${AUTH_REDIS_PORT:-6379}
-AUTH_REDIS_PASSWORD=$(grep -E '^AUTH_REDIS_PASSWORD=' .env | cut -d= -f2-)
-AUTH_REDIS_PASSWORD=${AUTH_REDIS_PASSWORD:-123456}
+AUTH_REDIS_URL=$(grep -E '^AUTH_REDIS_URL=' .env | cut -d= -f2-)
+AUTH_REDIS_URL=${AUTH_REDIS_URL:-redis://:123456@new-api-redis:6379/0}
 GATEWAY_CREDENTIAL_KEY_ID=$(grep -E '^GATEWAY_CREDENTIAL_KEY_ID=' .env | cut -d= -f2-)
 GATEWAY_CREDENTIAL_KEY_ID=${GATEWAY_CREDENTIAL_KEY_ID:-main}
 
@@ -339,10 +329,7 @@ cat > /tmp/model-gateway-chat-route.json <<EOF
       "jwt_public_key": "${APISIX_JWT_PUBLIC_KEY}",
       "jwt_issuer": "model-gateway-auth",
       "jwt_audience": "apisix-llm-gateway",
-      "redis_host": "${AUTH_REDIS_HOST}",
-      "redis_port": ${AUTH_REDIS_PORT},
-      "redis_database": 0,
-      "redis_password": "${AUTH_REDIS_PASSWORD}",
+      "redis_url": "${AUTH_REDIS_URL}",
       "credential_ensure_url": "${APISIX_CREDENTIAL_ENSURE_URL}",
       "gateway_secret": "${APISIX_GATEWAY_SECRET}",
       "aes_keys": {
@@ -398,6 +385,12 @@ curl -X POST http://127.0.0.1:${APISIX_PORT:-9080}/model-gateway-auth/api/admin/
 
 ```bash
 mysql -h 127.0.0.1 -P 3306 -unew_api -p123456 new_api
+```
+
+如果服务器 MySQL 使用 `root` 账号：
+
+```bash
+mysql -h 127.0.0.1 -P 3306 -uroot -p123456 new_api
 ```
 
 执行：
@@ -527,7 +520,7 @@ docker compose --env-file .env up -d
 
 如果 APISIX 和认证服务部署在不同机器：
 
-- 根目录 `.env` 保持认证服务自己的 MySQL、Redis和密钥文件路径。
+- 根目录 `.env` 保持认证服务自己的 MySQL URL、Redis URL 和密钥文件路径。
 - 认证服务部署目录保留完整 `cert/`，其中包含 JWT 私钥。
 - APISIX 部署目录只需要 `apisix/cert/` 中的 JWT 公钥、AES key 和回源密钥，不需要 JWT 私钥。
 - `apisix/.env` 中的 `AUTH_API_NODE` 改成 APISIX 能访问的认证服务节点，例如 `10.0.0.12:8188`。
@@ -537,7 +530,7 @@ docker compose --env-file .env up -d
 APISIX_CREDENTIAL_ENSURE_URL=http://10.0.0.12:8188/api/gateway/new-api-credential/ensure
 ```
 
-- `apisix/.env` 中的 `AUTH_REDIS_HOST` 改成 APISIX 能访问的 Redis 地址。
+- `apisix/.env` 中的 `AUTH_REDIS_URL` 改成 APISIX 能访问的 Redis 地址。
 - `apisix/cert/gateway-jwt-public.pem`、`apisix/cert/gateway-credential-aes.key`、`apisix/cert/apisix-gateway-secret.txt` 仍然必须和认证服务侧对应文件保持一致。
 - 如果不再通过 Docker 网络访问 Redis，把 `AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=false`，并将 `AUTH_NEW_API_DOCKER_NETWORK` 设置为 APISIX 本机可创建的普通网络名。
 
@@ -567,7 +560,7 @@ docker compose --env-file .env logs apisix-init
 - `APISIX_ADMIN_KEY` 和 `apisix/apisix_conf/config.yaml` 不一致。
 - APISIX 还没启动完成。
 - `apisix/cert/` 中缺少 JWT 公钥、AES key 或回源密钥文件。
-- `curlimages/curl:8.11.1` 镜像暂时无法拉取。
+- `docker.m.daocloud.io/curlimages/curl:8.11.1` 镜像暂时无法拉取。
 
 可以重新执行初始化服务：
 

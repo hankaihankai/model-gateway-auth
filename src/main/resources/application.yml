@@ -6,14 +6,12 @@ spring:
     name: model-gateway-auth
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/user_manager?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
+    url: ${AUTH_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/user_manager?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${AUTH_MYSQL_USERNAME:root}
+    password: ${AUTH_MYSQL_PASSWORD:123456}
   data:
     redis:
-      host: 127.0.0.1
-      port: 6379
-      database: 0
+      url: ${AUTH_REDIS_URL:redis://127.0.0.1:6379/0}
       timeout: 3s
 
 mybatis:

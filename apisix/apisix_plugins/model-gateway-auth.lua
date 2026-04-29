@@ -21,6 +21,7 @@ local credential_status_enable = "ENABLE"
 local redis_key_prefix = "gateway:newapi:credential:"
 local aes_gcm_iv_size = 12
 local aes_gcm_tag_size = 16
+local build_redis_conf
 
 local schema = {
     type = "object",
@@ -28,6 +29,7 @@ local schema = {
         jwt_public_key = {type = "string", minLength = 1},
         jwt_issuer = {type = "string", default = "model-gateway-auth"},
         jwt_audience = {type = "string", default = "apisix-llm-gateway"},
+        redis_url = {type = "string", minLength = 1},
         redis_host = {type = "string", minLength = 1},
         redis_port = {type = "integer", default = 6379, minimum = 1},
         redis_database = {type = "integer", default = 0, minimum = 0},
@@ -49,7 +51,6 @@ local schema = {
     },
     required = {
         "jwt_public_key",
-        "redis_host",
         "credential_ensure_url",
         "gateway_secret",
         "aes_keys",
@@ -70,6 +71,15 @@ function _M.check_schema(conf)
     local ok, err = core.schema.check(schema, conf)
     if not ok then
         return false, err
+    end
+
+    if not conf.redis_url and not conf.redis_host then
+        return false, "property redis_url or redis_host is required"
+    end
+
+    local redis_conf, redis_conf_err = build_redis_conf(conf)
+    if not redis_conf then
+        return false, redis_conf_err
     end
 
     for key_id, encoded_key in pairs(conf.aes_keys) do
@@ -319,6 +329,90 @@ local function decrypt_api_key(conf, credential, user_id)
     return api_key
 end
 
+-- 解码Redis URL中的转义字符。
+local function decode_url_part(value)
+    if not value then
+        return nil
+    end
+
+    return (value:gsub("%%(%x%x)", function(hex)
+        return string.char(tonumber(hex, 16))
+    end))
+end
+
+-- 从Redis URL构建APISIX Redis连接配置。
+build_redis_conf = function(conf)
+    if not conf.redis_url then
+        return conf
+    end
+
+    local scheme, address = conf.redis_url:match("^(rediss?)://(.+)$")
+    if not scheme then
+        return nil, "redis_url must start with redis:// or rediss://"
+    end
+
+    local authority = address
+    local path = nil
+    local matched_authority, matched_path = address:match("^([^/]*)(/.*)$")
+    if matched_authority then
+        authority = matched_authority
+        path = matched_path
+    end
+
+    local userinfo, host_port = authority:match("^(.*)@(.+)$")
+    if not host_port then
+        host_port = authority
+    end
+
+    local username = nil
+    local password = nil
+    if userinfo then
+        local matched_username, matched_password = userinfo:match("^([^:]*):(.*)$")
+        if matched_password then
+            username = decode_url_part(matched_username)
+            password = decode_url_part(matched_password)
+            if username == "" then
+                username = nil
+            end
+        else
+            password = decode_url_part(userinfo)
+        end
+    end
+
+    local host = nil
+    local port = nil
+    if host_port:sub(1, 1) == "[" then
+        host, port = host_port:match("^%[([^%]]+)%]:?(%d*)$")
+    else
+        host, port = host_port:match("^(.-):?(%d*)$")
+    end
+    if not host or host == "" then
+        return nil, "redis_url host is required"
+    end
+
+    local database = conf.redis_database or 0
+    if path and path ~= "/" then
+        local matched_database = path:match("^/(%d+)$")
+        if not matched_database then
+            return nil, "redis_url database must be a non-negative integer"
+        end
+        database = tonumber(matched_database)
+    end
+
+    local redis_conf = {}
+    for key, value in pairs(conf) do
+        redis_conf[key] = value
+    end
+    redis_conf.redis_host = decode_url_part(host)
+    redis_conf.redis_port = tonumber(port) or 6379
+    redis_conf.redis_database = database
+    redis_conf.redis_username = username or conf.redis_username
+    redis_conf.redis_password = password or conf.redis_password
+    redis_conf.redis_ssl = scheme == "rediss" or conf.redis_ssl
+
+    return redis_conf
+end
+
 -- 执行请求认证与Header转换。
 function _M.rewrite(conf, ctx)
     local token = read_bearer_jwt(ctx)
@@ -331,7 +425,13 @@ function _M.rewrite(conf, ctx)
         return reject(401, jwt_err)
     end
 
-    local credential, cache_state = read_redis_credential(conf, jwt_info.user_id)
+    local redis_conf, redis_conf_err = build_redis_conf(conf)
+    if not redis_conf then
+        core.log.error("redis config invalid: ", redis_conf_err)
+        return reject(503, "凭证缓存暂不可用")
+    end
+
+    local credential, cache_state = read_redis_credential(redis_conf, jwt_info.user_id)
     if cache_state == "redis_error" then
         return reject(503, "凭证缓存暂不可用")
     end

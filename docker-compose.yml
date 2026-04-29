@@ -7,12 +7,10 @@ services:
     container_name: model-gateway-auth
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://${AUTH_MYSQL_HOST:-host.docker.internal}:${AUTH_MYSQL_PORT:-3306}/${AUTH_MYSQL_DATABASE:-new_api}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_URL: ${AUTH_MYSQL_URL:-jdbc:mysql://host.docker.internal:3306/new_api?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
       SPRING_DATASOURCE_USERNAME: ${AUTH_MYSQL_USERNAME:-new_api}
       SPRING_DATASOURCE_PASSWORD: ${AUTH_MYSQL_PASSWORD:-123456}
-      SPRING_DATA_REDIS_HOST: ${AUTH_REDIS_HOST:-new-api-redis}
-      SPRING_DATA_REDIS_PORT: ${AUTH_REDIS_PORT:-6379}
-      SPRING_DATA_REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD:-123456}
+      SPRING_DATA_REDIS_URL: ${AUTH_REDIS_URL:-redis://:123456@new-api-redis:6379/0}
       GATEWAY_JWT_PRIVATE_KEY_FILE: ${GATEWAY_JWT_PRIVATE_KEY_FILE:-/app/cert/gateway-jwt-private.pem}
       GATEWAY_JWT_PUBLIC_KEY_FILE: ${GATEWAY_JWT_PUBLIC_KEY_FILE:-/app/cert/gateway-jwt-public.pem}
       GATEWAY_CREDENTIAL_KEY_ID: ${GATEWAY_CREDENTIAL_KEY_ID:-main}

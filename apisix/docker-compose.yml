@@ -43,9 +43,7 @@ services:
       APISIX_GATEWAY_SECRET_FILE: ${APISIX_GATEWAY_SECRET_FILE:-/cert/apisix-gateway-secret.txt}
       APISIX_AES_KEY_ID: ${GATEWAY_CREDENTIAL_KEY_ID:-main}
       GATEWAY_CREDENTIAL_AES_KEY_FILE: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:-/cert/gateway-credential-aes.key}
-      APISIX_REDIS_HOST: ${AUTH_REDIS_HOST:-new-api-redis}
-      APISIX_REDIS_PORT: ${AUTH_REDIS_PORT:-6379}
-      APISIX_REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD:-123456}
+      APISIX_REDIS_URL: ${AUTH_REDIS_URL:-redis://:123456@new-api-redis:6379/0}
       APISIX_CREDENTIAL_ENSURE_URL: ${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8188/api/gateway/new-api-credential/ensure}
       AUTH_API_NODE: ${AUTH_API_NODE:-host.docker.internal:8188}
       AUTH_API_ROUTE_PREFIX: ${AUTH_API_ROUTE_PREFIX:-/model-gateway-auth}
@@ -68,10 +66,7 @@ services:
               "jwt_public_key": "$$APISIX_JWT_PUBLIC_KEY",
               "jwt_issuer": "model-gateway-auth",
               "jwt_audience": "apisix-llm-gateway",
-              "redis_host": "$$APISIX_REDIS_HOST",
-              "redis_port": $$APISIX_REDIS_PORT,
-              "redis_database": 0,
-              "redis_password": "$$APISIX_REDIS_PASSWORD",
+              "redis_url": "$$APISIX_REDIS_URL",
               "credential_ensure_url": "$$APISIX_CREDENTIAL_ENSURE_URL",
               "gateway_secret": "$$APISIX_GATEWAY_SECRET",
               "aes_keys": {
