@@ -2,6 +2,7 @@ package com.model.gateway.auth.controller;
 
 import com.model.gateway.auth.common.ApiResponse;
 import com.model.gateway.auth.dto.UserCreateRequest;
+import com.model.gateway.auth.exception.AuthException;
 import com.model.gateway.auth.service.UserProfileService;
 import com.model.gateway.auth.vo.UserCreateResponse;
 import com.model.gateway.auth.vo.UserProfileVo;
@@ -14,6 +15,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -63,29 +68,47 @@ public class UserController {
      * 查询当前用户Token使用记录。
      *
      * @param authorization Authorization请求头
-     * @param page 页码
+     * @param pageNo 页码
      * @param pageSize 每页数量
-     * @param startTimestamp 开始Unix时间戳秒
-     * @param endTimestamp 结束Unix时间戳秒
+     * @param startTime 开始时间，格式 yyyy-MM-dd HH:mm:ss
+     * @param endTime 结束时间，格式 yyyy-MM-dd HH:mm:ss
      * @param modelName 模型名称
      * @return Token使用记录分页
      */
     @GetMapping("/token-records")
     public ApiResponse<UserTokenRecordsVo> tokenRecords(
             @RequestHeader("Authorization") String authorization,
-            @RequestParam(value = "p", required = false) Integer page,
-            @RequestParam(value = "page_size", required = false) Integer pageSize,
-            @RequestParam(value = "start_timestamp", required = false) Long startTimestamp,
-            @RequestParam(value = "end_timestamp", required = false) Long endTimestamp,
-            @RequestParam(value = "model_name", required = false) String modelName) {
+            @RequestParam(value = "pageNo", required = false) Integer pageNo,
+            @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @RequestParam(value = "startTime", required = false) String startTime,
+            @RequestParam(value = "endTime", required = false) String endTime,
+            @RequestParam(value = "modelName", required = false) String modelName) {
         return ApiResponse.success(userProfileService.getTokenRecords(
                 authorization,
-                page,
+                pageNo,
                 pageSize,
-                startTimestamp,
-                endTimestamp,
+                parseTimestamp(startTime),
+                parseTimestamp(endTime),
                 modelName
         ));
+    }
+
+    /**
+     * 解析时间字符串为 Unix 时间戳秒。
+     *
+     * @param timeStr 时间字符串，格式 yyyy-MM-dd HH:mm:ss
+     * @return Unix 时间戳秒，为空时返回 null
+     */
+    private Long parseTimestamp(String timeStr) {
+        if (!org.springframework.util.StringUtils.hasText(timeStr)) {
+            return null;
+        }
+        try {
+            LocalDateTime dateTime = LocalDateTime.parse(timeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            return dateTime.atZone(ZoneId.systemDefault()).toEpochSecond();
+        } catch (DateTimeParseException exception) {
+            throw new AuthException("时间格式不正确，应为 yyyy-MM-dd HH:mm:ss");
+        }
     }
 
     /**
