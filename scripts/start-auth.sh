@@ -98,35 +98,46 @@ echo "  ✓ Docker 网络存在: $NETWORK_NAME"
 echo ""
 echo "[4/6] 检查外部依赖..."
 
-MYSQL_URL=$(grep -E '^AUTH_MYSQL_URL=' "$ENV_FILE" | cut -d= -f2- || true)
-MYSQL_USER=$(grep -E '^AUTH_MYSQL_USERNAME=' "$ENV_FILE" | cut -d= -f2- || true)
-MYSQL_PASS=$(grep -E '^AUTH_MYSQL_PASSWORD=' "$ENV_FILE" | cut -d= -f2- || true)
+SPRING_PROFILE=$(grep -E '^SPRING_PROFILES_ACTIVE=' "$ENV_FILE" | cut -d= -f2- || true)
+MYSQL_HOST=$(grep -E '^MYSQL_HOST=' "$ENV_FILE" | cut -d= -f2- || true)
+MYSQL_PORT=$(grep -E '^MYSQL_PORT=' "$ENV_FILE" | cut -d= -f2- || true)
+MYSQL_DATABASE=$(grep -E '^MYSQL_DATABASE=' "$ENV_FILE" | cut -d= -f2- || true)
+MYSQL_USER=$(grep -E '^MYSQL_USERNAME=' "$ENV_FILE" | cut -d= -f2- || true)
+MYSQL_PASS=$(grep -E '^MYSQL_PASSWORD=' "$ENV_FILE" | cut -d= -f2- || true)
 
-if [[ -z "$MYSQL_URL" ]]; then
-  echo "  ✗ AUTH_MYSQL_URL 未配置，请在 .env 中手动配置 MySQL JDBC URL"
+if [[ -z "$SPRING_PROFILE" ]]; then
+  echo "  ✗ SPRING_PROFILES_ACTIVE 未配置，请在 .env 中手动配置 Spring 环境"
+  exit 1
+fi
+
+if [[ -z "$MYSQL_HOST" ]]; then
+  echo "  ✗ MYSQL_HOST 未配置，请在 .env 中手动配置 MySQL 主机地址"
+  exit 1
+fi
+
+if [[ -z "$MYSQL_PORT" ]]; then
+  echo "  ✗ MYSQL_PORT 未配置，请在 .env 中手动配置 MySQL 端口"
+  exit 1
+fi
+
+if ! [[ "$MYSQL_PORT" =~ ^[0-9]+$ ]]; then
+  echo "  ✗ MYSQL_PORT 格式不正确，请在 .env 中配置数字端口"
+  exit 1
+fi
+
+if [[ -z "$MYSQL_DATABASE" ]]; then
+  echo "  ✗ MYSQL_DATABASE 未配置，请在 .env 中手动配置 MySQL 数据库名"
   exit 1
 fi
 
 if [[ -z "$MYSQL_USER" ]]; then
-  echo "  ✗ AUTH_MYSQL_USERNAME 未配置，请在 .env 中手动配置 MySQL 用户名"
+  echo "  ✗ MYSQL_USERNAME 未配置，请在 .env 中手动配置 MySQL 用户名"
   exit 1
 fi
 
 if [[ -z "$MYSQL_PASS" ]]; then
-  echo "  ✗ AUTH_MYSQL_PASSWORD 未配置，请在 .env 中手动配置 MySQL 密码"
+  echo "  ✗ MYSQL_PASSWORD 未配置，请在 .env 中手动配置 MySQL 密码"
   exit 1
-fi
-
-# 尝试从 JDBC URL 提取 host:port
-MYSQL_HOSTPORT=$(echo "$MYSQL_URL" | sed -n 's/.*mysql:\/\/\([^/?]*\).*/\1/p')
-if [[ -z "$MYSQL_HOSTPORT" ]]; then
-  echo "  ✗ AUTH_MYSQL_URL 格式不正确，应类似 jdbc:mysql://host:3306/database?参数"
-  exit 1
-fi
-MYSQL_HOST=${MYSQL_HOSTPORT%:*}
-MYSQL_PORT=${MYSQL_HOSTPORT##*:}
-if [[ "$MYSQL_HOST" == "$MYSQL_PORT" ]]; then
-  MYSQL_PORT=3306
 fi
 
 echo -n "  MySQL ($MYSQL_HOST:$MYSQL_PORT) ... "
@@ -137,44 +148,37 @@ else
   echo "    请确认 MySQL 已启动且防火墙放行端口"
 fi
 
-REDIS_URL=$(grep -E '^AUTH_REDIS_URL=' "$ENV_FILE" | cut -d= -f2- || true)
-if [[ -z "$REDIS_URL" ]]; then
-  echo "  ✗ AUTH_REDIS_URL 未配置，请在 .env 中手动配置 Redis URL"
+REDIS_HOST=$(grep -E '^REDIS_HOST=' "$ENV_FILE" | cut -d= -f2- || true)
+REDIS_PORT=$(grep -E '^REDIS_PORT=' "$ENV_FILE" | cut -d= -f2- || true)
+REDIS_PASS=$(grep -E '^REDIS_PASSWORD=' "$ENV_FILE" | cut -d= -f2- || true)
+REDIS_DATABASE=$(grep -E '^REDIS_DATABASE=' "$ENV_FILE" | cut -d= -f2- || true)
+
+if [[ -z "$REDIS_HOST" ]]; then
+  echo "  ✗ REDIS_HOST 未配置，请在 .env 中手动配置 Redis 主机地址"
   exit 1
 fi
 
-if [[ "$REDIS_URL" != redis://* && "$REDIS_URL" != rediss://* ]]; then
-  echo "  ✗ AUTH_REDIS_URL 格式不正确，应类似 redis://:password@host:6379/0"
-  exit 1
-fi
-
-REDIS_AUTHORITY=${REDIS_URL#*://}
-REDIS_AUTHORITY=${REDIS_AUTHORITY%%/*}
-if [[ "$REDIS_AUTHORITY" == *"@"* ]]; then
-  REDIS_USERINFO=${REDIS_AUTHORITY%@*}
-  REDIS_HOSTPORT=${REDIS_AUTHORITY#*@}
-  if [[ "$REDIS_USERINFO" == *":"* ]]; then
-    REDIS_PASS=${REDIS_USERINFO#*:}
-  else
-    REDIS_PASS=$REDIS_USERINFO
-  fi
-else
-  REDIS_HOSTPORT=$REDIS_AUTHORITY
-  REDIS_PASS=""
-fi
-REDIS_HOST=${REDIS_HOSTPORT%:*}
-REDIS_PORT=${REDIS_HOSTPORT##*:}
-if [[ "$REDIS_HOST" == "$REDIS_PORT" ]]; then
+if [[ -z "$REDIS_PORT" ]]; then
   REDIS_PORT=6379
 fi
 
-if [[ -z "$REDIS_HOST" ]]; then
-  echo "  ✗ AUTH_REDIS_URL 未解析到 Redis 主机，请检查 .env"
+if ! [[ "$REDIS_PORT" =~ ^[0-9]+$ ]]; then
+  echo "  ✗ REDIS_PORT 格式不正确，请在 .env 中配置数字端口"
   exit 1
 fi
 
 if [[ -z "$REDIS_PASS" ]]; then
-  echo "  ✗ AUTH_REDIS_URL 未配置 Redis 密码，请在 .env 中手动配置"
+  echo "  ✗ REDIS_PASSWORD 未配置，请在 .env 中手动配置 Redis 密码"
+  exit 1
+fi
+
+if [[ -z "$REDIS_DATABASE" ]]; then
+  echo "  ✗ REDIS_DATABASE 未配置，请在 .env 中手动配置 Redis 数据库编号"
+  exit 1
+fi
+
+if ! [[ "$REDIS_DATABASE" =~ ^[0-9]+$ ]]; then
+  echo "  ✗ REDIS_DATABASE 格式不正确，请在 .env 中配置数字编号"
   exit 1
 fi
 
@@ -183,6 +187,55 @@ if docker exec "$REDIS_HOST" redis-cli -a "$REDIS_PASS" -p "$REDIS_PORT" ping 2>
   echo "✓ 可连接"
 else
   echo "? 未通过 docker exec 检测到（如果 Redis 不在本机 Docker 中，请手动确认）"
+fi
+
+NEW_API_USER_MANAGER_BASE_URL=$(grep -E '^NEW_API_USER_MANAGER_BASE_URL=' "$ENV_FILE" | cut -d= -f2- || true)
+NEW_API_USER_MANAGER_AUTH_KEY=$(grep -E '^NEW_API_USER_MANAGER_AUTH_KEY=' "$ENV_FILE" | cut -d= -f2- || true)
+
+if [[ -z "$NEW_API_USER_MANAGER_BASE_URL" ]]; then
+  echo "  ✗ NEW_API_USER_MANAGER_BASE_URL 未配置，请在 .env 中手动配置 new-api 用户管理地址"
+  exit 1
+fi
+
+if [[ "$NEW_API_USER_MANAGER_BASE_URL" != http://* && "$NEW_API_USER_MANAGER_BASE_URL" != https://* ]]; then
+  echo "  ✗ NEW_API_USER_MANAGER_BASE_URL 格式不正确，应以 http:// 或 https:// 开头"
+  exit 1
+fi
+
+if [[ -z "$NEW_API_USER_MANAGER_AUTH_KEY" ]]; then
+  echo "  ✗ NEW_API_USER_MANAGER_AUTH_KEY 未配置，请在 .env 中手动配置 new-api 用户管理授权码"
+  exit 1
+fi
+
+GATEWAY_JWT_PRIVATE_KEY_FILE=$(grep -E '^GATEWAY_JWT_PRIVATE_KEY_FILE=' "$ENV_FILE" | cut -d= -f2- || true)
+GATEWAY_JWT_PUBLIC_KEY_FILE=$(grep -E '^GATEWAY_JWT_PUBLIC_KEY_FILE=' "$ENV_FILE" | cut -d= -f2- || true)
+GATEWAY_CREDENTIAL_KEY_ID=$(grep -E '^GATEWAY_CREDENTIAL_KEY_ID=' "$ENV_FILE" | cut -d= -f2- || true)
+GATEWAY_CREDENTIAL_AES_KEY_FILE=$(grep -E '^GATEWAY_CREDENTIAL_AES_KEY_FILE=' "$ENV_FILE" | cut -d= -f2- || true)
+APISIX_GATEWAY_SECRET_FILE=$(grep -E '^APISIX_GATEWAY_SECRET_FILE=' "$ENV_FILE" | cut -d= -f2- || true)
+
+if [[ -z "$GATEWAY_JWT_PRIVATE_KEY_FILE" ]]; then
+  echo "  ✗ GATEWAY_JWT_PRIVATE_KEY_FILE 未配置，请在 .env 中手动配置 JWT 私钥文件路径"
+  exit 1
+fi
+
+if [[ -z "$GATEWAY_JWT_PUBLIC_KEY_FILE" ]]; then
+  echo "  ✗ GATEWAY_JWT_PUBLIC_KEY_FILE 未配置，请在 .env 中手动配置 JWT 公钥文件路径"
+  exit 1
+fi
+
+if [[ -z "$GATEWAY_CREDENTIAL_KEY_ID" ]]; then
+  echo "  ✗ GATEWAY_CREDENTIAL_KEY_ID 未配置，请在 .env 中手动配置凭证密钥ID"
+  exit 1
+fi
+
+if [[ -z "$GATEWAY_CREDENTIAL_AES_KEY_FILE" ]]; then
+  echo "  ✗ GATEWAY_CREDENTIAL_AES_KEY_FILE 未配置，请在 .env 中手动配置 AES 密钥文件路径"
+  exit 1
+fi
+
+if [[ -z "$APISIX_GATEWAY_SECRET_FILE" ]]; then
+  echo "  ✗ APISIX_GATEWAY_SECRET_FILE 未配置，请在 .env 中手动配置 APISIX 回源密钥文件路径"
+  exit 1
 fi
 
 # 5. 检查并启动 Docker Compose
