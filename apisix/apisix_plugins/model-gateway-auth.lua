@@ -19,7 +19,7 @@ local tostring = tostring
 local type = type
 
 local plugin_name = "model-gateway-auth"
-local credential_status_enable = "ENABLE"
+local credential_status_enable = 0
 local redis_key_prefix = "gateway:newapi:credential:"
 local jwt_blacklist_key_prefix = "gateway:jwt:blacklist:"
 local aes_gcm_iv_size = 12
@@ -286,13 +286,22 @@ local function ensure_credential(conf, ctx, token, user_id)
     return decoded.data or decoded
 end
 
+-- 判断凭证状态是否为启用。
+local function credential_enabled(credential)
+    if not credential then
+        return false
+    end
+
+    return tonumber(credential.status) == credential_status_enable
+end
+
 -- 校验凭证状态和必要字段。
 local function validate_credential(credential)
     if not credential then
         return false, 401, "Token无效或已过期"
     end
 
-    if credential.status ~= credential_status_enable then
+    if not credential_enabled(credential) then
         return false, 403, "凭证已禁用"
     end
 
@@ -480,7 +489,7 @@ function _M.rewrite(conf, ctx)
     end
 
     if not credential
-            or credential.status ~= credential_status_enable then
+            or not credential_enabled(credential) then
         local ensure_status
         local ensure_message
         credential, ensure_status, ensure_message = ensure_credential(
