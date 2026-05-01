@@ -5,15 +5,18 @@ spring:
   application:
     name: model-gateway-auth
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${AUTH_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/user_manager?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
-    username: ${AUTH_MYSQL_USERNAME:root}
-    password: ${AUTH_MYSQL_PASSWORD:123456}
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:user_manager}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:123456}
   data:
     redis:
-      url: ${AUTH_REDIS_URL:redis://:123456@127.0.0.1:6379/0}
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:123456}
+      database: ${REDIS_DATABASE:0}
       timeout: 3s
 
 mybatis:

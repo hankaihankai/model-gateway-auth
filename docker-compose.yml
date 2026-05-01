@@ -6,19 +6,7 @@ services:
     image: model-gateway-auth:latest
     container_name: model-gateway-auth
     restart: unless-stopped
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      SPRING_DATASOURCE_URL: ${AUTH_MYSQL_URL:-jdbc:mysql://host.docker.internal:3306/new_api?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
-      SPRING_DATASOURCE_USERNAME: ${AUTH_MYSQL_USERNAME:-new_api}
-      SPRING_DATASOURCE_PASSWORD: ${AUTH_MYSQL_PASSWORD:-123456}
-      SPRING_DATA_REDIS_URL: ${AUTH_REDIS_URL:-redis://:123456@new-api-redis:6379/0}
-      GATEWAY_JWT_PRIVATE_KEY_FILE: ${GATEWAY_JWT_PRIVATE_KEY_FILE:-/app/cert/gateway-jwt-private.pem}
-      GATEWAY_JWT_PUBLIC_KEY_FILE: ${GATEWAY_JWT_PUBLIC_KEY_FILE:-/app/cert/gateway-jwt-public.pem}
-      GATEWAY_CREDENTIAL_KEY_ID: ${GATEWAY_CREDENTIAL_KEY_ID:-main}
-      GATEWAY_CREDENTIAL_AES_KEY_FILE: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:-/app/cert/gateway-credential-aes.key}
-      APISIX_GATEWAY_SECRET_FILE: ${APISIX_GATEWAY_SECRET_FILE:-/app/cert/apisix-gateway-secret.txt}
-      NEW_API_USER_MANAGER_BASE_URL: ${NEW_API_USER_MANAGER_BASE_URL:-http://new-api:3000}
-      NEW_API_USER_MANAGER_AUTH_KEY: ${NEW_API_USER_MANAGER_AUTH_KEY:-dkmicjearmmxiojrac39203458}
+    env_file: .env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
