@@ -18,6 +18,7 @@ services:
       GATEWAY_CREDENTIAL_AES_KEY_FILE: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:-/app/cert/gateway-credential-aes.key}
       APISIX_GATEWAY_SECRET_FILE: ${APISIX_GATEWAY_SECRET_FILE:-/app/cert/apisix-gateway-secret.txt}
       NEW_API_USER_MANAGER_BASE_URL: ${NEW_API_USER_MANAGER_BASE_URL:-http://new-api:3000}
+      NEW_API_USER_MANAGER_AUTH_KEY: ${NEW_API_USER_MANAGER_AUTH_KEY:-dkmicjearmmxiojrac39203458}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

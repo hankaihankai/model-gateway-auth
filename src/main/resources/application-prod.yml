@@ -1,5 +1,5 @@
 new-api:
   user-manager:
-    base-url:
-    auth-key: dkmicjearmmxiojrac39203458
+    base-url: ${NEW_API_USER_MANAGER_BASE_URL:}
+    auth-key: ${NEW_API_USER_MANAGER_AUTH_KEY:}
     timeout-millis: 5000
