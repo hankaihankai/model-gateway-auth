@@ -16,6 +16,11 @@ public enum UserStatusEnum {
     DISABLE("DISABLE", "禁用"),
 
     /**
+     * 处理中状态。
+     */
+    PENDING("PENDING", "处理中"),
+
+    /**
      * 异常状态。
      */
     ERROR("ERROR", "异常");

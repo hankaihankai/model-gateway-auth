@@ -4,7 +4,9 @@ import com.model.gateway.auth.domain.SysUser;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 /**
  * 用户数据访问对象。
@@ -75,4 +77,18 @@ public interface UserMapper {
             """)
     @Options(useGeneratedKeys = true, keyProperty = "userId", keyColumn = "user_id")
     int insert(SysUser user);
+
+    /**
+     * 更新用户状态。
+     *
+     * @param userId 用户ID
+     * @param status 用户状态
+     * @return 影响行数
+     */
+    @Update("""
+            UPDATE sys_user
+            SET status = #{status}
+            WHERE user_id = #{userId}
+            """)
+    int updateStatus(@Param("userId") Long userId, @Param("status") String status);
 }

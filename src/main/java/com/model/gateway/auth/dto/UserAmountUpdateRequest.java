@@ -5,27 +5,24 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 /**
- * 管理员创建用户请求。
+ * 管理员修改用户金额请求。
  */
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserCreateRequest {
+public class UserAmountUpdateRequest {
 
     /**
-     * 用户名。
+     * 操作模式：add、subtract、override。
      */
-    private String username;
+    private String mode;
 
     /**
-     * 明文密码。
+     * 金额元。
      */
-    private String password;
-
-    /**
-     * 用户昵称。
-     */
-    private String nickname;
+    private BigDecimal amount;
 }

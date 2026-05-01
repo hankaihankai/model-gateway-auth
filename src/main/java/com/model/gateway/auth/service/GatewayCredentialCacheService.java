@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.Duration;
 import java.util.Date;
 import java.util.HexFormat;
+import java.util.Objects;
 
 /**
  * 网关凭证Redis缓存服务。
@@ -29,6 +30,11 @@ public class GatewayCredentialCacheService {
      * JWT黑名单Key前缀。
      */
     private static final String JWT_BLACKLIST_KEY_PREFIX = "gateway:jwt:blacklist:";
+
+    /**
+     * 用户额度锁Key前缀。
+     */
+    private static final String USER_QUOTA_LOCK_KEY_PREFIX = "gateway:user:quota:lock:";
 
     /**
      * Redis字符串模板。
@@ -107,6 +113,36 @@ public class GatewayCredentialCacheService {
     }
 
     /**
+     * 尝试获取用户额度分布式锁。
+     *
+     * @param userId 业务用户ID
+     * @param lockValue 锁值
+     * @param ttlSeconds 锁有效期秒数
+     * @return 是否获取成功
+     */
+    public boolean tryLockUserQuota(Long userId, String lockValue, Long ttlSeconds) {
+        return Boolean.TRUE.equals(stringRedisTemplate.opsForValue().setIfAbsent(
+                buildUserQuotaLockKey(userId),
+                lockValue,
+                Duration.ofSeconds(ttlSeconds)
+        ));
+    }
+
+    /**
+     * 释放用户额度分布式锁。
+     *
+     * @param userId 业务用户ID
+     * @param lockValue 锁值
+     */
+    public void unlockUserQuota(Long userId, String lockValue) {
+        String key = buildUserQuotaLockKey(userId);
+        String currentValue = stringRedisTemplate.opsForValue().get(key);
+        if (Objects.equals(currentValue, lockValue)) {
+            stringRedisTemplate.delete(key);
+        }
+    }
+
+    /**
      * 构建网关凭证缓存Key。
      *
      * @param userId 业务用户ID
@@ -124,6 +160,16 @@ public class GatewayCredentialCacheService {
      */
     public String buildJwtBlacklistKey(String token) {
         return JWT_BLACKLIST_KEY_PREFIX + sha256(token);
+    }
+
+    /**
+     * 构建用户额度锁Key。
+     *
+     * @param userId 业务用户ID
+     * @return Redis Key
+     */
+    private String buildUserQuotaLockKey(Long userId) {
+        return USER_QUOTA_LOCK_KEY_PREFIX + userId;
     }
 
     /**

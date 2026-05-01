@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 /**
  * 当前用户资料响应。
  */
@@ -48,4 +50,39 @@ public class UserProfileVo {
      * new-api用户名。
      */
     private String newApiUserName;
+
+    /**
+     * 当前余额金额。
+     */
+    private BigDecimal currentBalanceAmount;
+
+    /**
+     * 已用额度金额。
+     */
+    private BigDecimal usedQuotaAmount;
+
+    /**
+     * 总额度金额。
+     */
+    private BigDecimal totalQuotaAmount;
+
+    /**
+     * 剩余原始额度。
+     */
+    private Long quota;
+
+    /**
+     * 已用原始额度。
+     */
+    private Long usedQuota;
+
+    /**
+     * 总原始额度。
+     */
+    private Long totalQuota;
+
+    /**
+     * 额度金额换算比例。
+     */
+    private Long quotaPerUnit;
 }

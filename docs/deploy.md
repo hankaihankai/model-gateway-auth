@@ -364,21 +364,18 @@ cd /opt/model-gateway-auth
 创建业务用户：
 
 ```bash
-curl -X POST http://127.0.0.1:${APISIX_PORT:-9080}/model-gateway-auth/api/admin/users/registerUser \
+curl -X POST http://127.0.0.1:${APISIX_PORT:-9080}/model-gateway-auth/api/user/registerUser \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user001",
     "password": "123456",
-    "nickname": "测试用户",
-    "role": "USER",
-    "status": "ENABLE",
-    "newApiUserId": null,
-    "newApiUserName": "",
-    "newApiApiKey": ""
+    "nickname": "测试用户"
   }'
 ```
 
-如果你手动维护绑定，直接连宿主机 MySQL：
+注册成功后，认证服务会自动调用 new-api 外部用户管理接口创建 new-api 用户和默认 Token，并回填绑定。
+
+如需排查绑定状态，直接连宿主机 MySQL：
 
 ```bash
 mysql -h 127.0.0.1 -P 3306 -unew_api -p123456 new_api

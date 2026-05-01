@@ -3,7 +3,10 @@ package com.model.gateway.auth.mapper;
 import com.model.gateway.auth.domain.UserNewApiBinding;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 /**
  * new-api绑定数据访问对象。
@@ -54,5 +57,37 @@ public interface UserNewApiBindingMapper {
                 #{status}
             )
             """)
+    @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     int insert(UserNewApiBinding binding);
+
+    /**
+     * 更新new-api绑定为启用状态。
+     *
+     * @param binding new-api绑定
+     * @return 影响行数
+     */
+    @Update("""
+            UPDATE user_new_api_binding
+            SET
+                new_api_user_id = #{newApiUserId},
+                new_api_user_name = #{newApiUserName},
+                new_api_api_key = #{newApiApiKey},
+                status = #{status}
+            WHERE id = #{id}
+            """)
+    int updateBinding(UserNewApiBinding binding);
+
+    /**
+     * 更新new-api绑定状态。
+     *
+     * @param id 绑定ID
+     * @param status 绑定状态
+     * @return 影响行数
+     */
+    @Update("""
+            UPDATE user_new_api_binding
+            SET status = #{status}
+            WHERE id = #{id}
+            """)
+    int updateStatus(@Param("id") Long id, @Param("status") String status);
 }

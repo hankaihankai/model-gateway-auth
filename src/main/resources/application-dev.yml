@@ -1,5 +1,5 @@
 new-api:
   user-manager:
     base-url: http://127.0.0.1:3000
-    auth-key:
+    auth-key: dkmicjearmmxiojrac39203458
     timeout-millis: 5000
