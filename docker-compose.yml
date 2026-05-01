@@ -28,4 +28,4 @@ services:
 networks:
   new-api-network:
     external: true
-    name: ${AUTH_NEW_API_DOCKER_NETWORK:-new-api-network}
+    name: new-api-network

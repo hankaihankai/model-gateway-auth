@@ -155,23 +155,16 @@ fi
 echo ""
 echo "[4/7] 检查 Docker 网络..."
 
-NETWORK_EXTERNAL=$(grep -E '^AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=' "$ENV_FILE" | cut -d= -f2- | tr -d ' \t' || true)
-NETWORK_EXTERNAL=${NETWORK_EXTERNAL:-true}
-NETWORK_NAME=$(grep -E '^AUTH_NEW_API_DOCKER_NETWORK=' "$ENV_FILE" | cut -d= -f2- | tr -d ' \t' || true)
-NETWORK_NAME=${NETWORK_NAME:-new-api_default}
+NETWORK_NAME="new-api-network"
 
-if [[ "$NETWORK_EXTERNAL" == "true" ]]; then
-  if ! docker network ls --format '{{.Name}}' | grep -qx "$NETWORK_NAME"; then
-    echo "  ✗ 外部 Docker 网络不存在: $NETWORK_NAME"
-    echo "    请确认 Redis 容器已启动并加入该网络，或修改 apisix/.env 中的 AUTH_NEW_API_DOCKER_NETWORK"
-    echo "    可用网络列表:"
-    docker network ls --format '    - {{.Name}}' | grep -v '^    - bridge$' | grep -v '^    - host$' | grep -v '^    - none$' || true
-    exit 1
-  fi
-  echo "  ✓ 外部 Docker 网络存在: $NETWORK_NAME"
-else
-  echo "  ~ 使用本地网络（非外部网络）"
+if ! docker network ls --format '{{.Name}}' | grep -qx "$NETWORK_NAME"; then
+  echo "  ✗ 外部 Docker 网络不存在: $NETWORK_NAME"
+  echo "    请确认 Redis 容器已启动并加入该网络"
+  echo "    可用网络列表:"
+  docker network ls --format '    - {{.Name}}' | grep -v '^    - bridge$' | grep -v '^    - host$' | grep -v '^    - none$' || true
+  exit 1
 fi
+echo "  ✓ 外部 Docker 网络存在: $NETWORK_NAME"
 
 # 5. 检查 Compose 配置
 echo ""
@@ -188,6 +181,11 @@ echo "  ✓ Compose 配置检查通过"
 echo ""
 echo "[6/7] 启动 APISIX 及相关服务..."
 
+echo "  正在停止旧的 APISIX 容器..."
+docker compose --env-file "$ENV_FILE" down --remove-orphans
+
+echo ""
+echo "  正在启动 APISIX、etcd、Dashboard..."
 docker compose --env-file "$ENV_FILE" up -d
 
 echo "  ✓ APISIX、etcd、Dashboard 已启动"

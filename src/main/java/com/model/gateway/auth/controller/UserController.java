@@ -7,6 +7,7 @@ import com.model.gateway.auth.vo.UserCreateResponse;
 import com.model.gateway.auth.vo.UserProfileVo;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,7 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 个人用户接口控制器。
  */
-@RestController("/api/user/")
+@RestController
+@RequestMapping("/api/user")
 public class UserController {
 
     /**

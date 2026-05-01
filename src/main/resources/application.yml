@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: model-gateway-auth
+  profiles:
+    active: dev
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${AUTH_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/user_manager?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}

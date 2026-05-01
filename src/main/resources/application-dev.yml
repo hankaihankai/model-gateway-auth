@@ -1,0 +1,5 @@
+new-api:
+  user-manager:
+    base-url: http://127.0.0.1:3000
+    auth-key:
+    timeout-millis: 5000

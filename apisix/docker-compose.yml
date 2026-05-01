@@ -146,8 +146,8 @@ networks:
   apisix:
     driver: bridge
   new-api-network:
-    external: ${AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL:-true}
-    name: ${AUTH_NEW_API_DOCKER_NETWORK:-new-api-network}
+    external: true
+    name: new-api-network
 
 volumes:
   etcd_data:

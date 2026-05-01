@@ -82,12 +82,11 @@ fi
 echo ""
 echo "[3/6] 检查 Docker 网络..."
 
-NETWORK_NAME=$(grep -E '^AUTH_NEW_API_DOCKER_NETWORK=' "$ENV_FILE" | cut -d= -f2- | tr -d ' \t' || true)
-NETWORK_NAME=${NETWORK_NAME:-new-api_default}
+NETWORK_NAME="new-api-network"
 
 if ! docker network ls --format '{{.Name}}' | grep -qx "$NETWORK_NAME"; then
   echo "  ✗ 外部 Docker 网络不存在: $NETWORK_NAME"
-  echo "    请确认 Redis 容器已启动并加入该网络，或修改 .env 中的 AUTH_NEW_API_DOCKER_NETWORK"
+  echo "    请确认 Redis 容器已启动并加入该网络"
   echo "    可用网络列表:"
   docker network ls --format '    - {{.Name}}' | grep -v '^    - bridge$' | grep -v '^    - host$' | grep -v '^    - none$' || true
   exit 1
@@ -196,6 +195,10 @@ docker compose --env-file "$ENV_FILE" config > /dev/null 2>&1 || {
   exit 1
 }
 echo "  ✓ Compose 配置检查通过"
+
+echo ""
+echo "  正在停止旧的 model-gateway-auth 容器..."
+docker compose --env-file "$ENV_FILE" down --remove-orphans
 
 echo ""
 echo "  正在启动 model-gateway-auth..."

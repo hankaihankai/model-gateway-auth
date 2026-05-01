@@ -2,6 +2,7 @@ package com.model.gateway.auth.service;
 
 import com.model.gateway.auth.common.AuthConstants;
 import com.model.gateway.auth.common.UserStatusEnum;
+import com.model.gateway.auth.acl.NewApiUserAcl;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.domain.UserNewApiBinding;
 import com.model.gateway.auth.dto.UserCreateRequest;
@@ -33,6 +34,11 @@ public class UserProfileService {
     private final UserNewApiBindingMapper bindingMapper;
 
     /**
+     * new-api外部用户管理接口ACL。
+     */
+    private final NewApiUserAcl newApiUserAcl;
+
+    /**
      * 网关JWT服务。
      */
     private final GatewayJwtService gatewayJwtService;
@@ -52,6 +58,7 @@ public class UserProfileService {
      *
      * @param userMapper 用户数据访问对象
      * @param bindingMapper new-api绑定数据访问对象
+     * @param newApiUserAcl new-api外部用户管理接口ACL
      * @param gatewayJwtService 网关JWT服务
      * @param newApiBindingService new-api绑定业务服务
      * @param passwordEncoder BCrypt密码编码器
@@ -59,11 +66,13 @@ public class UserProfileService {
     public UserProfileService(
             UserMapper userMapper,
             UserNewApiBindingMapper bindingMapper,
+            NewApiUserAcl newApiUserAcl,
             GatewayJwtService gatewayJwtService,
             NewApiBindingService newApiBindingService,
             BCryptPasswordEncoder passwordEncoder) {
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
+        this.newApiUserAcl = newApiUserAcl;
         this.gatewayJwtService = gatewayJwtService;
         this.newApiBindingService = newApiBindingService;
         this.passwordEncoder = passwordEncoder;
@@ -157,16 +166,29 @@ public class UserProfileService {
      * @return 是否创建绑定
      */
     private boolean createBindingIfPresent(Long userId, UserCreateRequest request) {
-        if (request.getNewApiUserId() == null
-                && !StringUtils.hasText(request.getNewApiUserName())
-                && !StringUtils.hasText(request.getNewApiApiKey())) {
-            return false;
+        if (request.getNewApiUserId() != null
+                && StringUtils.hasText(request.getNewApiUserName())
+                && StringUtils.hasText(request.getNewApiApiKey())) {
+            bindingMapper.insert(UserNewApiBinding.builder()
+                    .userId(userId)
+                    .newApiUserId(request.getNewApiUserId())
+                    .newApiUserName(request.getNewApiUserName())
+                    .newApiApiKey(request.getNewApiApiKey())
+                    .status(UserStatusEnum.ENABLE.getCode())
+                    .build());
+            return true;
         }
+
+        NewApiUserAcl.NewApiCreateUserData newApiUser = newApiUserAcl.createUser(
+                request.getUsername(),
+                request.getPassword(),
+                request.getNickname()
+        );
         bindingMapper.insert(UserNewApiBinding.builder()
                 .userId(userId)
-                .newApiUserId(request.getNewApiUserId())
-                .newApiUserName(request.getNewApiUserName())
-                .newApiApiKey(request.getNewApiApiKey())
+                .newApiUserId(newApiUser.getUserId())
+                .newApiUserName(newApiUser.getUsername())
+                .newApiApiKey(newApiUser.getTokenKey())
                 .status(UserStatusEnum.ENABLE.getCode())
                 .build());
         return true;

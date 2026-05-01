@@ -1,0 +1,5 @@
+new-api:
+  user-manager:
+    base-url:
+    auth-key:
+    timeout-millis: 5000

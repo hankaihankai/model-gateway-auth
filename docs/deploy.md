@@ -55,16 +55,16 @@ Redis 默认通过 URL 复用已有 Docker 容器：
 url: redis://:123456@new-api-redis:6379/0
 ```
 
-确认 Redis 容器所在 Docker 网络：
+确认 Redis 容器已加入固定 Docker 网络 `new-api-network`：
 
 ```bash
-docker network ls
+docker network inspect new-api-network
 ```
 
-选一个网络把输出值同时写到根目录 `.env` 和 `apisix/.env` 的 `AUTH_NEW_API_DOCKER_NETWORK`。例如输出是 `new-api_default`：
+如果网络不存在，先创建：
 
-```text
-AUTH_NEW_API_DOCKER_NETWORK=new-api_default
+```bash
+docker network create new-api-network
 ```
 
 如果 MySQL 未初始化业务表，执行：
@@ -83,7 +83,6 @@ AUTH_MYSQL_USERNAME=new_api
 AUTH_MYSQL_PASSWORD=123456
 
 AUTH_REDIS_URL=redis://:123456@new-api-redis:6379/0
-AUTH_NEW_API_DOCKER_NETWORK=new-api_default
 
 AUTH_PORT=8188
 
@@ -110,8 +109,6 @@ AUTH_API_NODE=host.docker.internal:8188
 AUTH_API_ROUTE_PREFIX=/model-gateway-auth
 APISIX_CREDENTIAL_ENSURE_URL=http://host.docker.internal:8188/api/gateway/new-api-credential/ensure
 
-AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=true
-AUTH_NEW_API_DOCKER_NETWORK=new-api_default
 AUTH_REDIS_URL=redis://:123456@new-api-redis:6379/0
 
 GATEWAY_JWT_PUBLIC_KEY_FILE=/cert/gateway-jwt-public.pem
@@ -129,7 +126,7 @@ APISIX_GATEWAY_SECRET_FILE=/cert/apisix-gateway-secret.txt
 - `AUTH_API_ROUTE_PREFIX` 是认证服务项目对外路由前缀，默认 `/model-gateway-auth`，APISIX 会去掉此前缀后原样转发到认证服务。
 - 同机双 Compose 默认使用 `host.docker.internal` 回调认证服务；分开部署时把 `APISIX_CREDENTIAL_ENSURE_URL` 改成 APISIX 能访问到的认证服务地址。
 - `AUTH_REDIS_URL` 是 APISIX 访问 Redis 的完整地址，格式为 `redis://[:password@]host:port/database`；密码包含特殊字符时需要 URL 编码。
-- `AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=true` 表示 APISIX 复用已有 Docker 网络访问 `new-api-redis`；分开部署且 Redis 通过 IP 或域名访问时，可以改成 `false` 并把 `AUTH_NEW_API_DOCKER_NETWORK` 改成任意本地网络名，同时把 `AUTH_REDIS_URL` 改成 APISIX 能访问的 Redis 地址。
+- APISIX 和认证服务固定复用外部 Docker 网络 `new-api-network` 访问 `new-api-redis`。
 
 ## 5. 生成密钥
 
@@ -532,16 +529,15 @@ APISIX_CREDENTIAL_ENSURE_URL=http://10.0.0.12:8188/api/gateway/new-api-credentia
 
 - `apisix/.env` 中的 `AUTH_REDIS_URL` 改成 APISIX 能访问的 Redis 地址。
 - `apisix/cert/gateway-jwt-public.pem`、`apisix/cert/gateway-credential-aes.key`、`apisix/cert/apisix-gateway-secret.txt` 仍然必须和认证服务侧对应文件保持一致。
-- 如果不再通过 Docker 网络访问 Redis，把 `AUTH_NEW_API_DOCKER_NETWORK_EXTERNAL=false`，并将 `AUTH_NEW_API_DOCKER_NETWORK` 设置为 APISIX 本机可创建的普通网络名。
 
 ## 14. 常见问题
 
 ### Compose 提示 external network not found
 
-说明 `.env` 中的 `AUTH_NEW_API_DOCKER_NETWORK` 不正确，重新确认：
+说明固定外部网络 `new-api-network` 不存在，重新确认：
 
 ```bash
-docker inspect new-api-redis --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
+docker network inspect new-api-network
 ```
 
 根目录和 `apisix/.env` 都要同步修改。
