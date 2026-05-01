@@ -257,6 +257,18 @@ public class UserProfileService {
     }
 
     /**
+     * 查询当前用户可用模型。
+     *
+     * @param authorization Authorization请求头
+     * @return 可用模型列表
+     */
+    public List<String> getModels(String authorization) {
+        Long userId = parseCurrentUserId(authorization);
+        UserNewApiBinding binding = newApiBindingService.getBinding(userId);
+        return newApiUserAcl.getUserModels(binding.getNewApiUserId());
+    }
+
+    /**
      * 管理员设置用户金额。
      *
      * @param userId 业务用户ID

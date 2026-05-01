@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * 个人用户接口控制器。
  */
@@ -84,5 +86,16 @@ public class UserController {
                 endTimestamp,
                 modelName
         ));
+    }
+
+    /**
+     * 查询当前用户可用模型。
+     *
+     * @param authorization Authorization请求头
+     * @return 可用模型列表
+     */
+    @GetMapping("/models")
+    public ApiResponse<List<String>> models(@RequestHeader("Authorization") String authorization) {
+        return ApiResponse.success(userProfileService.getModels(authorization));
     }
 }

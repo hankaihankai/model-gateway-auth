@@ -53,6 +53,11 @@ public class NewApiUserAcl {
     private static final String USER_QUOTA_PATH = "/api/user-manager/users/{userId}/quota";
 
     /**
+     * 用户可用模型接口路径模板。
+     */
+    private static final String USER_MODELS_PATH = "/api/user-manager/users/{userId}/models";
+
+    /**
      * new-api外部用户管理接口配置。
      */
     private final NewApiUserManagerProperties properties;
@@ -188,6 +193,24 @@ public class NewApiUserAcl {
                         }),
                 "设置new-api用户额度失败");
         readSuccess(response, "设置new-api用户额度失败");
+    }
+
+    /**
+     * 查询new-api用户可用模型。
+     *
+     * @param userId new-api用户ID
+     * @return 可用模型列表
+     */
+    public List<String> getUserModels(Long userId) {
+        checkConfig();
+        NewApiResponse<List<String>> response = execute(() -> restClient.get()
+                        .uri(buildUrl(USER_MODELS_PATH.replace("{userId}", userId.toString())))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getAuthKey())
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<NewApiResponse<List<String>>>() {
+                        }),
+                "查询new-api用户可用模型失败");
+        return readData(response, "查询new-api用户可用模型失败");
     }
 
     /**
