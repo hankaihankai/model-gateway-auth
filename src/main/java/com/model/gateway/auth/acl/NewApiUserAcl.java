@@ -48,6 +48,11 @@ public class NewApiUserAcl {
     private static final String USER_QUOTA_RECORDS_PATH = "/api/user-manager/users/{userId}/quota/records";
 
     /**
+     * 用户额度设置接口路径模板。
+     */
+    private static final String USER_QUOTA_PATH = "/api/user-manager/users/{userId}/quota";
+
+    /**
      * new-api外部用户管理接口配置。
      */
     private final NewApiUserManagerProperties properties;
@@ -157,6 +162,35 @@ public class NewApiUserAcl {
     }
 
     /**
+     * 设置new-api用户额度。
+     *
+     * @param userId new-api用户ID
+     * @param mode 操作模式
+     *
+    - `add`：在用户当前额度基础上增加 `value`。
+    - `subtract`：在用户当前额度基础上减少 `value`；若用户额度不足，会返回错误。
+    - `override`：直接将用户额度覆盖为 `value`，不依赖当前额度。
+     * @param value 额度值
+     */
+    public void setUserQuota(Long userId, String mode, Long value) {
+        checkConfig();
+        NewApiSetUserQuotaRequest request = NewApiSetUserQuotaRequest.builder()
+                .mode(mode)
+                .value(value)
+                .build();
+        NewApiResponse<Void> response = execute(() -> restClient.post()
+                        .uri(buildUrl(USER_QUOTA_PATH.replace("{userId}", userId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getAuthKey())
+                        .body(request)
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<NewApiResponse<Void>>() {
+                        }),
+                "设置new-api用户额度失败");
+        readSuccess(response, "设置new-api用户额度失败");
+    }
+
+    /**
      * 构建HTTP请求工厂。
      *
      * @param timeoutMillis 超时时间毫秒数
@@ -241,6 +275,21 @@ public class NewApiUserAcl {
             throw new AuthException(defaultMessage);
         }
         return response.getData();
+    }
+
+    /**
+     * 读取无数据new-api响应结果。
+     *
+     * @param response new-api响应
+     * @param defaultMessage 默认错误消息
+     */
+    private void readSuccess(NewApiResponse<?> response, String defaultMessage) {
+        if (response == null) {
+            throw new AuthException(defaultMessage);
+        }
+        if (!Boolean.TRUE.equals(response.getSuccess())) {
+            throw new AuthException(StringUtils.hasText(response.getMessage()) ? response.getMessage() : defaultMessage);
+        }
     }
 
     /**
@@ -401,6 +450,26 @@ public class NewApiUserAcl {
          */
         @JsonProperty("token_key")
         private String tokenKey;
+    }
+
+    /**
+     * new-api设置用户额度请求。
+     */
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class NewApiSetUserQuotaRequest {
+
+        /**
+         * 操作模式。
+         */
+        private String mode;
+
+        /**
+         * 额度值。
+         */
+        private Long value;
     }
 
     /**
