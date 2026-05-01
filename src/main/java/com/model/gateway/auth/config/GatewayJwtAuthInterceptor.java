@@ -1,6 +1,6 @@
 package com.model.gateway.auth.config;
 
-import com.model.gateway.auth.common.AuthConstants;
+import com.model.gateway.auth.common.UserRoleEnum;
 import com.model.gateway.auth.common.UserStatusEnum;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.exception.AuthException;
@@ -121,6 +121,6 @@ public class GatewayJwtAuthInterceptor implements HandlerInterceptor {
      * @return 是否管理员
      */
     private boolean isAdmin(SysUser user) {
-        return user.getRole() != null && AuthConstants.ROLE_ADMIN.equalsIgnoreCase(user.getRole());
+        return user.getRole() != null && UserRoleEnum.ADMIN.getCode().equalsIgnoreCase(user.getRole());
     }
 }

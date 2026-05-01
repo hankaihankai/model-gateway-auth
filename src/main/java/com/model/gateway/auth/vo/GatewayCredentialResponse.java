@@ -37,7 +37,7 @@ public class GatewayCredentialResponse {
     /**
      * 凭证状态。
      */
-    private String status;
+    private Integer status;
 
     /**
      * 过期时间戳秒。

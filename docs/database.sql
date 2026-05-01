@@ -10,8 +10,10 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
   `username` VARCHAR(64) NOT NULL COMMENT '用户名',
   `password` VARCHAR(100) NOT NULL COMMENT 'BCrypt加密密码',
   `nickname` VARCHAR(64) DEFAULT NULL COMMENT '用户昵称',
+  `phone` VARCHAR(20) DEFAULT NULL COMMENT '手机号',
+  `email` VARCHAR(128) DEFAULT NULL COMMENT '邮箱',
   `role` VARCHAR(32) NOT NULL COMMENT '用户角色：USER或ADMIN',
-  `status` VARCHAR(32) NOT NULL COMMENT '用户状态：ENABLE或DISABLE',
+  `status` INT NOT NULL DEFAULT 0 COMMENT '用户状态：0启用、1禁用、2处理中、3异常',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`user_id`),
@@ -25,7 +27,7 @@ CREATE TABLE IF NOT EXISTS `user_new_api_binding` (
   `new_api_user_id` BIGINT DEFAULT NULL COMMENT 'new-api用户ID',
   `new_api_user_name` VARCHAR(128) DEFAULT NULL COMMENT 'new-api用户名称',
   `new_api_api_key` TEXT DEFAULT NULL COMMENT '完整明文new-api API Key，格式为sk-xxx',
-  `status` VARCHAR(32) NOT NULL DEFAULT 'PENDING' COMMENT '绑定状态：PENDING、ENABLE、DISABLE、ERROR',
+  `status` INT NOT NULL DEFAULT 2 COMMENT '绑定状态：0启用、1禁用、2处理中、3异常',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -36,7 +38,7 @@ CREATE TABLE IF NOT EXISTS `user_new_api_binding` (
 
 -- 手工维护示例：先用sk_xxx占位，后续替换成真实new-api API Key。
 -- INSERT INTO `user_new_api_binding` (`user_id`, `new_api_user_id`, `new_api_user_name`, `new_api_api_key`, `status`)
--- VALUES (1, 1, 'newapi_user', 'sk_xxx', 'ENABLE');
+-- VALUES (1, 1, 'newapi_user', 'sk_xxx', 0);
 
 CREATE TABLE IF NOT EXISTS `user_new_api_binding_log` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',

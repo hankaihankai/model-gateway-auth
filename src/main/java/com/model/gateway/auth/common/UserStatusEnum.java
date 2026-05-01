@@ -8,42 +8,42 @@ public enum UserStatusEnum {
     /**
      * 启用状态。
      */
-    ENABLE("ENABLE", "启用"),
+    ENABLE(0, "启用"),
 
     /**
      * 禁用状态。
      */
-    DISABLE("DISABLE", "禁用"),
+    DISABLE(1, "禁用"),
 
     /**
      * 处理中状态。
      */
-    PENDING("PENDING", "处理中"),
+    PENDING(2, "处理中"),
 
     /**
      * 异常状态。
      */
-    ERROR("ERROR", "异常");
+    ERROR(3, "异常");
 
     /**
      * 状态编码。
      */
-    private final String code;
+    private final Integer code;
 
     /**
      * 状态说明。
      */
-    private final String description;
+    private final String desc;
 
     /**
      * 创建用户状态枚举。
      *
      * @param code 状态编码
-     * @param description 状态说明
+     * @param desc 状态说明
      */
-    UserStatusEnum(String code, String description) {
+    UserStatusEnum(Integer code, String desc) {
         this.code = code;
-        this.description = description;
+        this.desc = desc;
     }
 
     /**
@@ -51,7 +51,7 @@ public enum UserStatusEnum {
      *
      * @return 状态编码
      */
-    public String getCode() {
+    public Integer getCode() {
         return code;
     }
 
@@ -60,7 +60,7 @@ public enum UserStatusEnum {
      *
      * @return 状态说明
      */
-    public String getDescription() {
-        return description;
+    public String getDesc() {
+        return desc;
     }
 }

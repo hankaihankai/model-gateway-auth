@@ -2,6 +2,7 @@ package com.model.gateway.auth.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.common.AuthConstants;
+import com.model.gateway.auth.common.UserRoleEnum;
 import com.model.gateway.auth.common.UserStatusEnum;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.dto.LoginRequest;

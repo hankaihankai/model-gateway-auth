@@ -89,5 +89,5 @@ public interface UserNewApiBindingMapper {
             SET status = #{status}
             WHERE id = #{id}
             """)
-    int updateStatus(@Param("id") Long id, @Param("status") String status);
+    int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 }

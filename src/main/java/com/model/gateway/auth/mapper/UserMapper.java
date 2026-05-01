@@ -26,6 +26,8 @@ public interface UserMapper {
                 username,
                 password,
                 nickname,
+                phone,
+                email,
                 role,
                 status
             FROM sys_user
@@ -46,6 +48,8 @@ public interface UserMapper {
                 username,
                 password,
                 nickname,
+                phone,
+                email,
                 role,
                 status
             FROM sys_user
@@ -65,12 +69,16 @@ public interface UserMapper {
                 username,
                 password,
                 nickname,
+                phone,
+                email,
                 role,
                 status
             ) VALUES (
                 #{username},
                 #{password},
                 #{nickname},
+                #{phone},
+                #{email},
                 #{role},
                 #{status}
             )
@@ -90,5 +98,5 @@ public interface UserMapper {
             SET status = #{status}
             WHERE user_id = #{userId}
             """)
-    int updateStatus(@Param("userId") Long userId, @Param("status") String status);
+    int updateStatus(@Param("userId") Long userId, @Param("status") Integer status);
 }

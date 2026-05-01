@@ -32,6 +32,16 @@ public class UserProfileVo {
     private String nickname;
 
     /**
+     * 手机号。
+     */
+    private String phone;
+
+    /**
+     * 邮箱。
+     */
+    private String email;
+
+    /**
      * 用户角色。
      */
     private String role;
@@ -39,7 +49,7 @@ public class UserProfileVo {
     /**
      * 用户状态。
      */
-    private String status;
+    private Integer status;
 
     /**
      * new-api用户ID。

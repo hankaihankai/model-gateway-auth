@@ -1,7 +1,7 @@
 package com.model.gateway.auth.service;
 
 import com.model.gateway.auth.acl.NewApiUserAcl;
-import com.model.gateway.auth.common.AuthConstants;
+import com.model.gateway.auth.common.UserRoleEnum;
 import com.model.gateway.auth.common.UserStatusEnum;
 import com.model.gateway.auth.domain.UserNewApiBindingLog;
 import com.model.gateway.auth.domain.SysUser;
@@ -182,6 +182,8 @@ public class UserProfileService {
                 .userId(user.getUserId())
                 .username(user.getUsername())
                 .nickname(user.getNickname())
+                .phone(user.getPhone())
+                .email(user.getEmail())
                 .role(user.getRole())
                 .status(user.getStatus())
                 .newApiUserId(binding.getNewApiUserId())
@@ -310,7 +312,9 @@ public class UserProfileService {
                     .username(request.getUsername())
                     .password(passwordEncoder.encode(request.getPassword()))
                     .nickname(request.getNickname())
-                    .role(AuthConstants.ROLE_USER)
+                    .phone(request.getPhone())
+                    .email(request.getEmail())
+                    .role(UserRoleEnum.USER.getCode())
                     .status(UserStatusEnum.DISABLE.getCode())
                     .build();
             userMapper.insert(user);

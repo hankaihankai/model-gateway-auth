@@ -44,7 +44,7 @@ public class UserNewApiBinding {
     /**
      * 绑定状态。
      */
-    private String status;
+    private Integer status;
 
     /**
      * 创建时间。
