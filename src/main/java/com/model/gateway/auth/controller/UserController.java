@@ -83,12 +83,20 @@ public class UserController {
             @RequestParam(value = "startTime", required = false) String startTime,
             @RequestParam(value = "endTime", required = false) String endTime,
             @RequestParam(value = "modelName", required = false) String modelName) {
+        Long startTimestamp = parseTimestamp(startTime);
+        Long endTimestamp = parseTimestamp(endTime);
+        if (startTimestamp == null) {
+            startTimestamp = LocalDateTime.now().minusYears(1).atZone(ZoneId.systemDefault()).toEpochSecond();
+        }
+        if (endTimestamp == null) {
+            endTimestamp = LocalDateTime.now().atZone(ZoneId.systemDefault()).toEpochSecond();
+        }
         return ApiResponse.success(userProfileService.getTokenRecords(
                 authorization,
                 pageNo,
                 pageSize,
-                parseTimestamp(startTime),
-                parseTimestamp(endTime),
+                startTimestamp,
+                endTimestamp,
                 modelName
         ));
     }
