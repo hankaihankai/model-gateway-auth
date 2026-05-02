@@ -1,16 +1,18 @@
 package com.model.gateway.auth.service;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.common.UserStatusEnum;
 import com.model.gateway.auth.config.GatewayCredentialProperties;
+import com.model.gateway.auth.context.LoginUser;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.dto.GatewayCredentialEnsureRequest;
 import com.model.gateway.auth.exception.AuthStatusException;
 import com.model.gateway.auth.mapper.UserMapper;
 import com.model.gateway.auth.support.SecretFileUtils;
 import com.model.gateway.auth.vo.GatewayCredentialResponse;
-import io.jsonwebtoken.Claims;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * APISIX网关凭证业务服务。
@@ -19,14 +21,14 @@ import org.springframework.stereotype.Service;
 public class GatewayCredentialService {
 
     /**
+     * Authorization请求头中Bearer Token前缀。
+     */
+    private static final String BEARER_PREFIX = "Bearer ";
+
+    /**
      * 网关凭证配置属性。
      */
     private final GatewayCredentialProperties credentialProperties;
-
-    /**
-     * 网关JWT服务。
-     */
-    private final GatewayJwtService gatewayJwtService;
 
     /**
      * 用户数据访问对象。
@@ -42,17 +44,14 @@ public class GatewayCredentialService {
      * 创建APISIX网关凭证业务服务。
      *
      * @param credentialProperties 网关凭证配置属性
-     * @param gatewayJwtService 网关JWT服务
      * @param userMapper 用户数据访问对象
      * @param newApiBindingService new-api绑定业务服务
      */
     public GatewayCredentialService(
             GatewayCredentialProperties credentialProperties,
-            GatewayJwtService gatewayJwtService,
             UserMapper userMapper,
             NewApiBindingService newApiBindingService) {
         this.credentialProperties = credentialProperties;
-        this.gatewayJwtService = gatewayJwtService;
         this.userMapper = userMapper;
         this.newApiBindingService = newApiBindingService;
     }
@@ -67,8 +66,12 @@ public class GatewayCredentialService {
      */
     public GatewayCredentialResponse ensureCredential(String gatewaySecret, String authorization, GatewayCredentialEnsureRequest request) {
         checkGatewaySecret(gatewaySecret);
-        Claims claims = gatewayJwtService.parseToken(gatewayJwtService.extractBearerToken(authorization));
-        Long tokenUserId = Long.valueOf(claims.getSubject());
+        String token = extractBearerToken(authorization);
+        Object loginId = StpUtil.getLoginIdByToken(token);
+        if (loginId == null) {
+            throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token无效或已过期");
+        }
+        Long tokenUserId = Long.valueOf(loginId.toString());
         if (request == null || request.getUserId() == null || !tokenUserId.equals(request.getUserId())) {
             throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token用户不匹配");
         }
@@ -81,7 +84,20 @@ public class GatewayCredentialService {
             throw new AuthStatusException(HttpStatus.FORBIDDEN, 403, "用户已禁用");
         }
 
-        return newApiBindingService.ensureCredential(user);
+        return newApiBindingService.ensureCredential(LoginUser.from(user));
+    }
+
+    /**
+     * 从Authorization请求头提取Bearer Token。
+     *
+     * @param authorization Authorization请求头
+     * @return Bearer Token
+     */
+    private String extractBearerToken(String authorization) {
+        if (!StringUtils.hasText(authorization) || !authorization.startsWith(BEARER_PREFIX)) {
+            throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Authorization请求头缺失");
+        }
+        return authorization.substring(BEARER_PREFIX.length()).trim();
     }
 
     /**

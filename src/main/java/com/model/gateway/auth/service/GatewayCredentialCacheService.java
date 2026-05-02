@@ -7,12 +7,7 @@ import com.model.gateway.auth.vo.GatewayCredentialResponse;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.Instant;
 import java.time.Duration;
-import java.util.Date;
-import java.util.HexFormat;
 import java.util.Objects;
 
 /**
@@ -25,11 +20,6 @@ public class GatewayCredentialCacheService {
      * Redis凭证Key前缀。
      */
     private static final String CREDENTIAL_KEY_PREFIX = "gateway:newapi:credential:";
-
-    /**
-     * JWT黑名单Key前缀。
-     */
-    private static final String JWT_BLACKLIST_KEY_PREFIX = "gateway:jwt:blacklist:";
 
     /**
      * 用户额度锁Key前缀。
@@ -85,34 +75,6 @@ public class GatewayCredentialCacheService {
     }
 
     /**
-     * 将JWT加入黑名单。
-     *
-     * @param token JWT字符串
-     * @param expiration JWT过期时间
-     */
-    public void blacklistJwt(String token, Date expiration) {
-        long ttlSeconds = calculateTtlSeconds(expiration);
-        if (ttlSeconds <= 0) {
-            return;
-        }
-        stringRedisTemplate.opsForValue().set(
-                buildJwtBlacklistKey(token),
-                "1",
-                Duration.ofSeconds(ttlSeconds)
-        );
-    }
-
-    /**
-     * 判断JWT是否已被加入黑名单。
-     *
-     * @param token JWT字符串
-     * @return 是否已被加入黑名单
-     */
-    public boolean isJwtBlacklisted(String token) {
-        return Boolean.TRUE.equals(stringRedisTemplate.hasKey(buildJwtBlacklistKey(token)));
-    }
-
-    /**
      * 尝试获取用户额度分布式锁。
      *
      * @param userId 业务用户ID
@@ -153,16 +115,6 @@ public class GatewayCredentialCacheService {
     }
 
     /**
-     * 构建JWT黑名单Key。
-     *
-     * @param token JWT字符串
-     * @return Redis Key
-     */
-    public String buildJwtBlacklistKey(String token) {
-        return JWT_BLACKLIST_KEY_PREFIX + sha256(token);
-    }
-
-    /**
      * 构建用户额度锁Key。
      *
      * @param userId 业务用户ID
@@ -170,33 +122,5 @@ public class GatewayCredentialCacheService {
      */
     private String buildUserQuotaLockKey(Long userId) {
         return USER_QUOTA_LOCK_KEY_PREFIX + userId;
-    }
-
-    /**
-     * 计算JWT黑名单TTL秒数。
-     *
-     * @param expiration JWT过期时间
-     * @return 剩余有效期秒数
-     */
-    private long calculateTtlSeconds(Date expiration) {
-        if (expiration == null) {
-            return 0;
-        }
-        return Math.max(0, expiration.toInstant().getEpochSecond() - Instant.now().getEpochSecond());
-    }
-
-    /**
-     * 计算SHA-256摘要。
-     *
-     * @param value 原始字符串
-     * @return 十六进制摘要
-     */
-    private String sha256(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (Exception exception) {
-            throw new AuthException("JWT黑名单Key生成失败");
-        }
     }
 }

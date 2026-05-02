@@ -324,8 +324,6 @@ cat > /tmp/model-gateway-chat-route.json <<EOF
   "plugins": {
     "model-gateway-auth": {
       "jwt_public_key": "${APISIX_JWT_PUBLIC_KEY}",
-      "jwt_issuer": "model-gateway-auth",
-      "jwt_audience": "apisix-llm-gateway",
       "redis_url": "${AUTH_REDIS_URL}",
       "credential_ensure_url": "${APISIX_CREDENTIAL_ENSURE_URL}",
       "gateway_secret": "${APISIX_GATEWAY_SECRET}",

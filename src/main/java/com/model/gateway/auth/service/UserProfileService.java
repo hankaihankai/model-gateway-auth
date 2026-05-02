@@ -1,8 +1,11 @@
 package com.model.gateway.auth.service;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.acl.NewApiUserAcl;
 import com.model.gateway.auth.common.UserRoleEnum;
 import com.model.gateway.auth.common.UserStatusEnum;
+import com.model.gateway.auth.config.SaTokenConfig;
+import com.model.gateway.auth.context.LoginUser;
 import com.model.gateway.auth.domain.UserNewApiBindingLog;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.domain.UserNewApiBinding;
@@ -15,7 +18,6 @@ import com.model.gateway.auth.mapper.UserNewApiBindingLogMapper;
 import com.model.gateway.auth.vo.UserCreateResponse;
 import com.model.gateway.auth.vo.UserProfileVo;
 import com.model.gateway.auth.vo.UserTokenRecordsVo;
-import io.jsonwebtoken.Claims;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -96,11 +98,6 @@ public class UserProfileService {
     private final NewApiUserAcl newApiUserAcl;
 
     /**
-     * 网关JWT服务。
-     */
-    private final GatewayJwtService gatewayJwtService;
-
-    /**
      * new-api绑定业务服务。
      */
     private final NewApiBindingService newApiBindingService;
@@ -132,7 +129,6 @@ public class UserProfileService {
      * @param bindingMapper new-api绑定数据访问对象
      * @param bindingLogMapper new-api绑定日志数据访问对象
      * @param newApiUserAcl new-api外部用户管理接口ACL
-     * @param gatewayJwtService 网关JWT服务
      * @param newApiBindingService new-api绑定业务服务
      * @param gatewayCredentialCacheService 网关凭证Redis缓存服务
      * @param passwordEncoder BCrypt密码编码器
@@ -143,7 +139,6 @@ public class UserProfileService {
             UserNewApiBindingMapper bindingMapper,
             UserNewApiBindingLogMapper bindingLogMapper,
             NewApiUserAcl newApiUserAcl,
-            GatewayJwtService gatewayJwtService,
             NewApiBindingService newApiBindingService,
             GatewayCredentialCacheService gatewayCredentialCacheService,
             BCryptPasswordEncoder passwordEncoder,
@@ -152,7 +147,6 @@ public class UserProfileService {
         this.bindingMapper = bindingMapper;
         this.bindingLogMapper = bindingLogMapper;
         this.newApiUserAcl = newApiUserAcl;
-        this.gatewayJwtService = gatewayJwtService;
         this.newApiBindingService = newApiBindingService;
         this.gatewayCredentialCacheService = gatewayCredentialCacheService;
         this.passwordEncoder = passwordEncoder;
@@ -160,22 +154,22 @@ public class UserProfileService {
     }
 
     /**
-     * 查询当前用户资料。
+     * 从SaSession读取当前登录上下文用户。
      *
-     * @param authorization Authorization请求头
+     * @return 登录上下文用户
+     */
+    private LoginUser currentLoginUser() {
+        return (LoginUser) StpUtil.getSession().get(SaTokenConfig.SESSION_LOGIN_USER_KEY);
+    }
+
+    /**
+     * 查询当前用户资料。当前登录上下文由拦截器写入持有者，无需透传Authorization。
+     *
      * @return 当前用户资料
      */
-    public UserProfileVo getProfile(String authorization) {
-        Claims claims = gatewayJwtService.parseToken(gatewayJwtService.extractBearerToken(authorization));
-        Long userId = Long.valueOf(claims.getSubject());
-        SysUser user = userMapper.selectByUserId(userId);
-        if (user == null) {
-            throw new AuthException("用户不存在");
-        }
-        if (!UserStatusEnum.ENABLE.getCode().equals(user.getStatus())) {
-            throw new AuthException("用户已禁用");
-        }
-        UserNewApiBinding binding = newApiBindingService.getBinding(userId);
+    public UserProfileVo getProfile() {
+        LoginUser user = currentLoginUser();
+        UserNewApiBinding binding = newApiBindingService.getBinding(user.getUserId());
         NewApiUserAcl.NewApiUserStatsData stats = newApiUserAcl.getUserStats(binding.getNewApiUserId(), null, null);
         NewApiUserAcl.AccountData accountData = stats.getAccountData();
         return UserProfileVo.builder()
@@ -216,9 +210,8 @@ public class UserProfileService {
     }
 
     /**
-     * 查询当前用户Token使用记录。
+     * 查询当前用户Token使用记录。当前登录上下文由拦截器写入持有者，无需透传Authorization。
      *
-     * @param authorization Authorization请求头
      * @param page 页码
      * @param pageSize 每页数量
      * @param startTimestamp 开始Unix时间戳秒
@@ -227,13 +220,12 @@ public class UserProfileService {
      * @return Token使用记录分页
      */
     public UserTokenRecordsVo getTokenRecords(
-            String authorization,
             Integer page,
             Integer pageSize,
             Long startTimestamp,
             Long endTimestamp,
             String modelName) {
-        Long userId = parseCurrentUserId(authorization);
+        Long userId = StpUtil.getLoginIdAsLong();
         UserNewApiBinding binding = newApiBindingService.getBinding(userId);
         NewApiUserAcl.NewApiQuotaRecordsData records = newApiUserAcl.getQuotaRecords(
                 binding.getNewApiUserId(),
@@ -257,13 +249,12 @@ public class UserProfileService {
     }
 
     /**
-     * 查询当前用户可用模型。
+     * 查询当前用户可用模型。当前登录上下文由拦截器写入持有者，无需透传Authorization。
      *
-     * @param authorization Authorization请求头
      * @return 可用模型列表
      */
-    public List<String> getModels(String authorization) {
-        Long userId = parseCurrentUserId(authorization);
+    public List<String> getModels() {
+        Long userId = StpUtil.getLoginIdAsLong();
         UserNewApiBinding binding = newApiBindingService.getBinding(userId);
         return newApiUserAcl.getUserModels(binding.getNewApiUserId());
     }
@@ -441,17 +432,6 @@ public class UserProfileService {
             builder.append(RANDOM_CHARS[secureRandom.nextInt(RANDOM_CHARS.length)]);
         }
         return builder.toString();
-    }
-
-    /**
-     * 解析当前用户ID。
-     *
-     * @param authorization Authorization请求头
-     * @return 当前用户ID
-     */
-    private Long parseCurrentUserId(String authorization) {
-        Claims claims = gatewayJwtService.parseToken(gatewayJwtService.extractBearerToken(authorization));
-        return Long.valueOf(claims.getSubject());
     }
 
     /**

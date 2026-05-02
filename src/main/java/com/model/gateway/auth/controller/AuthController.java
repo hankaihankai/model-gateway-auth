@@ -6,7 +6,6 @@ import com.model.gateway.auth.service.AuthService;
 import com.model.gateway.auth.vo.LoginResponse;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,25 +42,23 @@ public class AuthController {
     }
 
     /**
-     * 刷新登录Token接口。
+     * 刷新登录Token接口。当前登录上下文由拦截器写入持有者，无需透传Authorization。
      *
-     * @param authorization Authorization请求头
      * @return 登录响应
      */
     @PostMapping("/refresh")
-    public ApiResponse<LoginResponse> refresh(@RequestHeader("Authorization") String authorization) {
-        return ApiResponse.success(authService.refresh(authorization));
+    public ApiResponse<LoginResponse> refresh() {
+        return ApiResponse.success(authService.refresh());
     }
 
     /**
-     * 用户登出接口。
+     * 用户登出接口。当前登录上下文由拦截器写入持有者，无需透传Authorization。
      *
-     * @param authorization Authorization请求头
      * @return 登出结果
      */
     @PostMapping("/logout")
-    public ApiResponse<Boolean> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        authService.logout(authorization);
+    public ApiResponse<Boolean> logout() {
+        authService.logout();
         return ApiResponse.success(Boolean.TRUE);
     }
 }

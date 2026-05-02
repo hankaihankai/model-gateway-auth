@@ -7,8 +7,6 @@ local jwt = require("resty.jwt")
 local http = require("resty.http")
 local redis_util = require("apisix.utils.redis")
 local cipher = require("resty.openssl.cipher")
-local sha256 = require("resty.sha256")
-local resty_string = require("resty.string")
 
 local ngx = ngx
 local str_sub = string.sub
@@ -16,12 +14,10 @@ local str_lower = string.lower
 local str_match = string.match
 local tonumber = tonumber
 local tostring = tostring
-local type = type
 
 local plugin_name = "model-gateway-auth"
 local credential_status_enable = 0
 local redis_key_prefix = "gateway:newapi:credential:"
-local jwt_blacklist_key_prefix = "gateway:jwt:blacklist:"
 local aes_gcm_iv_size = 12
 local aes_gcm_tag_size = 16
 local build_redis_conf
@@ -30,8 +26,6 @@ local schema = {
     type = "object",
     properties = {
         jwt_public_key = {type = "string", minLength = 1},
-        jwt_issuer = {type = "string", default = "model-gateway-auth"},
-        jwt_audience = {type = "string", default = "apisix-llm-gateway"},
         redis_url = {type = "string", minLength = 1},
         redis_host = {type = "string", minLength = 1},
         redis_port = {type = "integer", default = 6379, minimum = 1},
@@ -114,23 +108,6 @@ local function read_bearer_jwt(ctx)
     return str_sub(authorization, 8)
 end
 
--- 判断JWT受众是否匹配。
-local function audience_matches(actual_audience, expected_audience)
-    if actual_audience == expected_audience then
-        return true
-    end
-
-    if type(actual_audience) == "table" then
-        for _, audience in ipairs(actual_audience) do
-            if audience == expected_audience then
-                return true
-            end
-        end
-    end
-
-    return false
-end
-
 -- 验证JWT并读取业务用户。
 local function verify_gateway_jwt(conf, token)
     local jwt_obj = jwt:load_jwt(token)
@@ -152,23 +129,18 @@ local function verify_gateway_jwt(conf, token)
     end
 
     local payload = jwt_obj.payload or {}
-    if payload.iss ~= conf.jwt_issuer or not audience_matches(payload.aud, conf.jwt_audience) then
-        core.log.warn("gateway jwt issuer or audience mismatch")
-        return nil, "Token无效或已过期"
-    end
-
-    if not payload.exp or tonumber(payload.exp) <= ngx.time() then
+    if not payload.eff or tonumber(payload.eff) <= ngx.time() then
         core.log.warn("gateway jwt expired")
         return nil, "Token无效或已过期"
     end
 
-    if not payload.sub then
-        core.log.warn("gateway jwt missing sub")
+    if not payload.loginId then
+        core.log.warn("gateway jwt missing loginId")
         return nil, "Token无效或已过期"
     end
 
     return {
-        user_id = tostring(payload.sub),
+        user_id = tostring(payload.loginId),
     }
 end
 
@@ -204,38 +176,6 @@ local function read_redis_credential(conf, user_id)
     end
 
     return credential
-end
-
--- 构建JWT黑名单Redis Key。
-local function build_jwt_blacklist_key(token)
-    local digest = sha256:new()
-    digest:update(token)
-    return jwt_blacklist_key_prefix .. resty_string.to_hex(digest:final())
-end
-
--- 查询JWT是否已注销。
-local function is_jwt_blacklisted(conf, token)
-    local red, err = redis_util.new(conf)
-    if not red then
-        core.log.error("redis connect failed: ", err)
-        return nil, "redis_error"
-    end
-
-    local exists, exists_err = red:exists(build_jwt_blacklist_key(token))
-    local ok, keepalive_err = red:set_keepalive(
-        conf.redis_keepalive_timeout,
-        conf.redis_keepalive_pool
-    )
-    if not ok then
-        core.log.warn("redis set_keepalive failed: ", keepalive_err)
-    end
-
-    if exists_err then
-        core.log.error("redis get jwt blacklist failed: ", exists_err)
-        return nil, "redis_error"
-    end
-
-    return exists == 1 or exists == true
 end
 
 -- 调用用户系统补齐凭证。
@@ -473,14 +413,6 @@ function _M.rewrite(conf, ctx)
     if not redis_conf then
         core.log.error("redis config invalid: ", redis_conf_err)
         return reject(503, "凭证缓存暂不可用")
-    end
-
-    local blacklisted, blacklist_state = is_jwt_blacklisted(redis_conf, token)
-    if blacklist_state == "redis_error" then
-        return reject(503, "凭证缓存暂不可用")
-    end
-    if blacklisted then
-        return reject(401, "Token无效或已过期")
     end
 
     local credential, cache_state = read_redis_credential(redis_conf, jwt_info.user_id)

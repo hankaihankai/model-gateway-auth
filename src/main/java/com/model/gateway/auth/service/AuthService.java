@@ -17,17 +17,14 @@ public interface AuthService {
     LoginResponse login(LoginRequest request);
 
     /**
-     * 刷新登录Token。
+     * 刷新登录Token。当前登录上下文由拦截器写入持有者，无需透传Authorization。
      *
-     * @param authorization Authorization请求头
      * @return 登录响应
      */
-    LoginResponse refresh(String authorization);
+    LoginResponse refresh();
 
     /**
-     * 执行用户登出。
-     *
-     * @param authorization Authorization请求头
+     * 执行用户登出。当前登录上下文由拦截器写入持有者，无需透传Authorization。
      */
-    void logout(String authorization);
+    void logout();
 }

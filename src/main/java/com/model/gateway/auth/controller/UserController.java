@@ -10,7 +10,6 @@ import com.model.gateway.auth.vo.UserTokenRecordsVo;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,14 +42,13 @@ public class UserController {
     }
 
     /**
-     * 查询当前用户资料。
+     * 查询当前用户资料。当前登录上下文由拦截器写入持有者，无需透传Authorization。
      *
-     * @param authorization Authorization请求头
      * @return 当前用户资料
      */
     @GetMapping("/profile")
-    public ApiResponse<UserProfileVo> profile(@RequestHeader("Authorization") String authorization) {
-        return ApiResponse.success(userProfileService.getProfile(authorization));
+    public ApiResponse<UserProfileVo> profile() {
+        return ApiResponse.success(userProfileService.getProfile());
     }
 
     /**
@@ -65,9 +63,8 @@ public class UserController {
     }
 
     /**
-     * 查询当前用户Token使用记录。
+     * 查询当前用户Token使用记录。当前登录上下文由拦截器写入持有者，无需透传Authorization。
      *
-     * @param authorization Authorization请求头
      * @param pageNo 页码
      * @param pageSize 每页数量
      * @param startTime 开始时间，格式 yyyy-MM-dd HH:mm:ss
@@ -77,7 +74,6 @@ public class UserController {
      */
     @GetMapping("/token-records")
     public ApiResponse<UserTokenRecordsVo> tokenRecords(
-            @RequestHeader("Authorization") String authorization,
             @RequestParam(value = "pageNo", required = false) Integer pageNo,
             @RequestParam(value = "pageSize", required = false) Integer pageSize,
             @RequestParam(value = "startTime", required = false) String startTime,
@@ -92,7 +88,6 @@ public class UserController {
             endTimestamp = LocalDateTime.now().atZone(ZoneId.systemDefault()).toEpochSecond();
         }
         return ApiResponse.success(userProfileService.getTokenRecords(
-                authorization,
                 pageNo,
                 pageSize,
                 startTimestamp,
@@ -120,13 +115,12 @@ public class UserController {
     }
 
     /**
-     * 查询当前用户可用模型。
+     * 查询当前用户可用模型。当前登录上下文由拦截器写入持有者，无需透传Authorization。
      *
-     * @param authorization Authorization请求头
      * @return 可用模型列表
      */
     @GetMapping("/models")
-    public ApiResponse<List<String>> models(@RequestHeader("Authorization") String authorization) {
-        return ApiResponse.success(userProfileService.getModels(authorization));
+    public ApiResponse<List<String>> models() {
+        return ApiResponse.success(userProfileService.getModels());
     }
 }

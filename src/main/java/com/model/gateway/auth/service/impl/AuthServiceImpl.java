@@ -2,19 +2,18 @@ package com.model.gateway.auth.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.common.AuthConstants;
-import com.model.gateway.auth.common.UserRoleEnum;
 import com.model.gateway.auth.common.UserStatusEnum;
+import com.model.gateway.auth.config.SaTokenConfig;
+import com.model.gateway.auth.context.LoginUser;
 import com.model.gateway.auth.domain.SysUser;
 import com.model.gateway.auth.dto.LoginRequest;
 import com.model.gateway.auth.exception.AuthException;
-import com.model.gateway.auth.service.GatewayCredentialCacheService;
-import com.model.gateway.auth.mapper.UserMapper;
 import com.model.gateway.auth.service.AuthService;
-import com.model.gateway.auth.service.GatewayJwtService;
+import com.model.gateway.auth.service.GatewayCredentialCacheService;
 import com.model.gateway.auth.service.NewApiBindingService;
+import com.model.gateway.auth.mapper.UserMapper;
 import com.model.gateway.auth.vo.LoginResponse;
 import com.model.gateway.auth.vo.UserInfoVo;
-import io.jsonwebtoken.Claims;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -41,11 +40,6 @@ public class AuthServiceImpl implements AuthService {
     private final NewApiBindingService newApiBindingService;
 
     /**
-     * 网关JWT服务。
-     */
-    private final GatewayJwtService gatewayJwtService;
-
-    /**
      * 网关凭证缓存服务。
      */
     private final GatewayCredentialCacheService gatewayCredentialCacheService;
@@ -56,19 +50,16 @@ public class AuthServiceImpl implements AuthService {
      * @param userMapper 用户数据访问对象
      * @param passwordEncoder BCrypt密码编码器
      * @param newApiBindingService new-api绑定业务服务
-     * @param gatewayJwtService 网关JWT服务
      * @param gatewayCredentialCacheService 网关凭证缓存服务
      */
     public AuthServiceImpl(
             UserMapper userMapper,
             BCryptPasswordEncoder passwordEncoder,
             NewApiBindingService newApiBindingService,
-            GatewayJwtService gatewayJwtService,
             GatewayCredentialCacheService gatewayCredentialCacheService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.newApiBindingService = newApiBindingService;
-        this.gatewayJwtService = gatewayJwtService;
         this.gatewayCredentialCacheService = gatewayCredentialCacheService;
     }
 
@@ -90,42 +81,32 @@ public class AuthServiceImpl implements AuthService {
         }
 
         StpUtil.login(user.getUserId());
-        newApiBindingService.ensureCredential(user);
-        return buildLoginResponse(user);
+        LoginUser loginUser = LoginUser.from(user);
+        StpUtil.getSession().set(SaTokenConfig.SESSION_LOGIN_USER_KEY, loginUser);
+        newApiBindingService.ensureCredential(loginUser);
+        return buildLoginResponse(loginUser);
     }
 
     /**
      * 刷新登录Token并延长new-api凭证缓存。
      *
-     * @param authorization Authorization请求头
      * @return 登录响应
      */
     @Override
-    public LoginResponse refresh(String authorization) {
-        Claims claims = gatewayJwtService.parseToken(gatewayJwtService.extractBearerToken(authorization));
-        Long userId = Long.valueOf(claims.getSubject());
-        SysUser user = userMapper.selectByUserId(userId);
-        if (user == null) {
-            throw new AuthException("用户不存在");
-        }
-        if (!UserStatusEnum.ENABLE.getCode().equals(user.getStatus())) {
-            throw new AuthException("用户已禁用");
-        }
-        newApiBindingService.ensureCredential(user);
-        return buildLoginResponse(user);
+    public LoginResponse refresh() {
+        LoginUser loginUser = (LoginUser) StpUtil.getSession().get(SaTokenConfig.SESSION_LOGIN_USER_KEY);
+        newApiBindingService.ensureCredential(loginUser);
+        return buildLoginResponse(loginUser);
     }
 
     /**
      * 执行用户登出。
-     *
-     * @param authorization Authorization请求头
      */
     @Override
-    public void logout(String authorization) {
-        String token = gatewayJwtService.extractBearerToken(authorization);
-        Claims claims = gatewayJwtService.parseToken(token);
-        gatewayCredentialCacheService.deleteCredential(Long.valueOf(claims.getSubject()));
-        gatewayCredentialCacheService.blacklistJwt(token, claims.getExpiration());
+    public void logout() {
+        Long userId = StpUtil.getLoginIdAsLong();
+        gatewayCredentialCacheService.deleteCredential(userId);
+        StpUtil.logout();
     }
 
     /**
@@ -142,15 +123,14 @@ public class AuthServiceImpl implements AuthService {
     /**
      * 构建登录响应。
      *
-     * @param user 用户信息
+     * @param user 登录上下文用户
      * @return 登录响应
      */
-    private LoginResponse buildLoginResponse(SysUser user) {
-        String gatewayToken = gatewayJwtService.createToken(user);
+    private LoginResponse buildLoginResponse(LoginUser user) {
         return LoginResponse.builder()
-                .accessToken(gatewayToken)
+                .accessToken(StpUtil.getTokenValue())
                 .tokenType(AuthConstants.TOKEN_TYPE_BEARER)
-                .expiresIn(gatewayJwtService.getExpireSeconds())
+                .expiresIn(StpUtil.getTokenTimeout())
                 .userInfo(UserInfoVo.builder()
                         .userId(user.getUserId())
                         .username(user.getUsername())

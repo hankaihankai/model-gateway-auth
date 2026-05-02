@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn -q -DskipTests compile)",
+      "Bash(mvn -DskipTests compile)",
+      "WebFetch(domain:sa-token.cc)",
+      "WebSearch",
+      "Bash(mkdir -p /c/Users/hankai/.claude/plans)",
+      "Read(//c/Users/hankai/.claude/plans//**)",
+      "Bash(command -v mvn)",
+      "Bash(mvn -q dependency:resolve)",
+      "Bash(mvn help:evaluate -Dexpression=settings.localRepository -q -DforceStdout)",
+      "Bash(jar tf *)",
+      "Bash(javap *)",
+      "Bash(xargs -I {} sh -c 'jar tf \"{}\" 2>/dev/null | grep -l SaInterceptor && echo \"FOUND in {}\"')",
+      "Bash(mvn -DskipTests clean compile)",
+      "Bash(docker compose *)",
+      "Bash(docker pull *)",
+      "Bash(mkdir -p /tmp/dockercfg)",
+      "Bash(DOCKER_CONFIG=/tmp/dockercfg docker pull eclipse-temurin:17-jre)",
+      "Bash(DOCKER_CONFIG=/tmp/dockercfg docker compose -f D:/Project/model-gateway-auth/docker-compose.yml --project-directory D:/Project/model-gateway-auth up -d --build)",
+      "Bash(DOCKER_CONFIG=/tmp/dockercfg docker compose -f D:/Project/model-gateway-auth/apisix/docker-compose.yml --project-directory D:/Project/model-gateway-auth/apisix restart apisix)",
+      "Bash(docker rm *)",
+      "Bash(DOCKER_CONFIG=/tmp/dockercfg docker compose -f D:/Project/model-gateway-auth/apisix/docker-compose.yml --project-directory D:/Project/model-gateway-auth/apisix up apisix-init)",
+      "Bash(docker exec *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:9080/v1/chat/completions -X POST -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8188/api/auth/login -X POST -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(MSYS_NO_PATHCONV=1 docker exec apisix sh -c \"grep -c 'loginId' /usr/local/apisix/apisix/plugins/model-gateway-auth.lua; grep -c 'jwt_blacklist' /usr/local/apisix/apisix/plugins/model-gateway-auth.lua || true\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST http://localhost:9080/v1/chat/completions -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST http://localhost:8188/api/auth/login -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(docker inspect *)",
+      "Bash(docker network *)",
+      "Bash(docker restart *)"
+    ]
+  }
+}

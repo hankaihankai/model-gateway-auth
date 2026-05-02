@@ -33,7 +33,7 @@ sa-token:
   is-read-cookie: false
   is-concurrent: true
   is-share: false
-  token-style: uuid
+  jwt-secret-key: ignored-by-rsa
   is-log: false
 
 gateway:

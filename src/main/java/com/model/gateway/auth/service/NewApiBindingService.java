@@ -1,7 +1,8 @@
 package com.model.gateway.auth.service;
 
 import com.model.gateway.auth.common.UserStatusEnum;
-import com.model.gateway.auth.domain.SysUser;
+import com.model.gateway.auth.config.GatewayJwtProperties;
+import com.model.gateway.auth.context.LoginUser;
 import com.model.gateway.auth.domain.UserNewApiBinding;
 import com.model.gateway.auth.exception.AuthException;
 import com.model.gateway.auth.mapper.UserNewApiBindingMapper;
@@ -33,9 +34,9 @@ public class NewApiBindingService {
     private final GatewayCredentialCacheService credentialCacheService;
 
     /**
-     * 网关JWT服务。
+     * 网关JWT配置属性。
      */
-    private final GatewayJwtService gatewayJwtService;
+    private final GatewayJwtProperties jwtProperties;
 
     /**
      * 创建new-api绑定业务服务。
@@ -43,32 +44,32 @@ public class NewApiBindingService {
      * @param bindingMapper new-api绑定数据访问对象
      * @param credentialCryptoService new-api凭证加密服务
      * @param credentialCacheService 网关凭证缓存服务
-     * @param gatewayJwtService 网关JWT服务
+     * @param jwtProperties 网关JWT配置属性
      */
     public NewApiBindingService(
             UserNewApiBindingMapper bindingMapper,
             CredentialCryptoService credentialCryptoService,
             GatewayCredentialCacheService credentialCacheService,
-            GatewayJwtService gatewayJwtService) {
+            GatewayJwtProperties jwtProperties) {
         this.bindingMapper = bindingMapper;
         this.credentialCryptoService = credentialCryptoService;
         this.credentialCacheService = credentialCacheService;
-        this.gatewayJwtService = gatewayJwtService;
+        this.jwtProperties = jwtProperties;
     }
 
     /**
      * 确保用户存在可用new-api凭证并刷新Redis。
      *
-     * @param user 用户信息
+     * @param user 登录上下文用户
      * @return 网关凭证响应
      */
-    public GatewayCredentialResponse ensureCredential(SysUser user) {
+    public GatewayCredentialResponse ensureCredential(LoginUser user) {
         checkUser(user);
         UserNewApiBinding binding = bindingMapper.selectByUserId(user.getUserId());
         checkBinding(binding);
 
         Long now = Instant.now().getEpochSecond();
-        Long expireAt = now + gatewayJwtService.getExpireSeconds();
+        Long expireAt = now + jwtProperties.getExpireSeconds();
         String apiKeyCipher = credentialCryptoService.encryptApiKey(
                 binding.getNewApiApiKey(),
                 user.getUserId(),
@@ -85,7 +86,7 @@ public class NewApiBindingService {
                 .expireAt(expireAt)
                 .updatedAt(now)
                 .build();
-        credentialCacheService.cacheCredential(response, gatewayJwtService.getExpireSeconds());
+        credentialCacheService.cacheCredential(response, jwtProperties.getExpireSeconds());
         return response;
     }
 
@@ -104,9 +105,9 @@ public class NewApiBindingService {
     /**
      * 校验用户状态。
      *
-     * @param user 用户信息
+     * @param user 登录上下文用户
      */
-    private void checkUser(SysUser user) {
+    private void checkUser(LoginUser user) {
         if (user == null) {
             throw new AuthException("用户不存在");
         }
