@@ -1,5 +1,6 @@
 package com.model.gateway.auth.service;
 
+import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.common.UserStatusEnum;
 import com.model.gateway.auth.config.GatewayCredentialProperties;
@@ -72,6 +73,13 @@ public class GatewayCredentialService {
             throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token无效或已过期");
         }
         Long tokenUserId = Long.valueOf(loginId.toString());
+        // Sa-Token JWT-Mixin模式下StpUtil.logout()不会清理session/terminal,只能依赖last-active key
+        // 是否存在判定token是否仍然有效。logout会显式DEL该key,登出后此处必然落空。
+        String lastActiveKey = SaManager.getConfig().getTokenName() + ":login:last-active:" + token;
+        boolean tokenAlive = SaManager.getSaTokenDao().get(lastActiveKey) != null;
+        if (!tokenAlive) {
+            throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token已登出或已过期");
+        }
         if (request == null || request.getUserId() == null || !tokenUserId.equals(request.getUserId())) {
             throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token用户不匹配");
         }

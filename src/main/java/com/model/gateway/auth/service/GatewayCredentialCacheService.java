@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.model.gateway.auth.exception.AuthException;
 import com.model.gateway.auth.vo.GatewayCredentialResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +17,11 @@ import java.util.Objects;
  */
 @Service
 public class GatewayCredentialCacheService {
+
+    /**
+     * 日志记录器。
+     */
+    private static final Logger log = LoggerFactory.getLogger(GatewayCredentialCacheService.class);
 
     /**
      * Redis凭证Key前缀。
@@ -71,7 +78,8 @@ public class GatewayCredentialCacheService {
      * @param userId 业务用户ID
      */
     public void deleteCredential(Long userId) {
-        stringRedisTemplate.delete(buildCredentialKey(userId));
+        Boolean removed = stringRedisTemplate.delete(buildCredentialKey(userId));
+        log.debug("删除网关凭证缓存 userId={} removed={}", userId, removed);
     }
 
     /**

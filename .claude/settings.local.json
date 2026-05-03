@@ -30,7 +30,28 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST http://localhost:8188/api/auth/login -H \"Content-Type: application/json\" -d '{}')",
       "Bash(docker inspect *)",
       "Bash(docker network *)",
-      "Bash(docker restart *)"
+      "Bash(docker restart *)",
+      "Bash(DOCKER_CONFIG=/tmp/dockercfg MSYS_NO_PATHCONV=1 docker compose --env-file .env up -d --build model-gateway-auth)",
+      "WebFetch(domain:gitee.com)",
+      "WebFetch(domain:javadoc.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(MSYS_NO_PATHCONV=1 docker logs model-gateway-auth --tail=20)",
+      "Bash(MSYS_NO_PATHCONV=1 curl *)",
+      "Bash(curl *)",
+      "Bash(docker run *)",
+      "Bash(DOCKER_CONFIG=/tmp/dockercfg docker run *)",
+      "Bash(python3 *)",
+      "Bash(java -cp \"/c/Users/hankai/.m2/repository/org/springframework/security/spring-security-crypto/6.3.5.RELEASE/spring-security-crypto-6.3.5.RELEASE.jar:/c/Users/hankai/.m2/repository/commons-logging/commons-logging/1.2/commons-logging-1.2.jar\" org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder)",
+      "Read(//c/Users/hankai/.m2/repository/org/springframework/security/**)",
+      "WebFetch(domain:www.devglan.com)",
+      "Bash(docker cp *)",
+      "Bash(jar xf *)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "Bash(ps -W)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(mvn clean *)"
     ]
   }
 }

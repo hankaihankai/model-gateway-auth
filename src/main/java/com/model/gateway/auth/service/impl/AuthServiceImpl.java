@@ -1,5 +1,6 @@
 package com.model.gateway.auth.service.impl;
 
+import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.common.AuthConstants;
 import com.model.gateway.auth.common.UserStatusEnum;
@@ -105,8 +106,12 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout() {
         Long userId = StpUtil.getLoginIdAsLong();
-        gatewayCredentialCacheService.deleteCredential(userId);
+        String token = StpUtil.getTokenValue();
+        // Sa-Token JWT-Mixin模式下StpUtil.logout()不会主动DEL Redis中的last-active key,
+        // 显式删除以让后续APISIX回调ensureCredential的tokenAlive校验落空,凭证无法再被回写。
         StpUtil.logout();
+        SaManager.getSaTokenDao().delete(buildLastActiveKey(token));
+        gatewayCredentialCacheService.deleteCredential(userId);
     }
 
     /**
@@ -118,6 +123,16 @@ public class AuthServiceImpl implements AuthService {
         if (request == null || !StringUtils.hasText(request.getUsername()) || !StringUtils.hasText(request.getPassword())) {
             throw new AuthException("用户名和密码不能为空");
         }
+    }
+
+    /**
+     * 构建Sa-Token last-active key,用于显式清理。
+     *
+     * @param token 当前登录token
+     * @return Sa-Token last-active Redis Key
+     */
+    private String buildLastActiveKey(String token) {
+        return SaManager.getConfig().getTokenName() + ":login:last-active:" + token;
     }
 
     /**
