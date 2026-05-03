@@ -51,7 +51,10 @@
       "Bash(tasklist)",
       "Bash(ps -W)",
       "WebFetch(domain:api.github.com)",
-      "Bash(mvn clean *)"
+      "Bash(mvn clean *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(mvn compile *)"
     ]
   }
 }
