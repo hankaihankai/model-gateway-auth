@@ -47,3 +47,23 @@ gateway:
     key-id: ${GATEWAY_CREDENTIAL_KEY_ID:main}
     aes-key-file: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:}
     gateway-secret-file: ${APISIX_GATEWAY_SECRET_FILE:}
+
+email:
+  qq:
+    host: smtp.qq.com
+    port: 587
+    username: ${EMAIL_QQ_USERNAME:}
+    password: ${EMAIL_QQ_PASSWORD:}
+    from: ${EMAIL_QQ_FROM:}
+  netease:
+    host: smtp.163.com
+    port: 25
+    username: ${EMAIL_163_USERNAME:}
+    password: ${EMAIL_163_PASSWORD:}
+    from: ${EMAIL_163_FROM:}
+  generic:
+    host: ${EMAIL_GENERIC_HOST:}
+    port: ${EMAIL_GENERIC_PORT:587}
+    username: ${EMAIL_GENERIC_USERNAME:}
+    password: ${EMAIL_GENERIC_PASSWORD:}
+    from: ${EMAIL_GENERIC_FROM:}
