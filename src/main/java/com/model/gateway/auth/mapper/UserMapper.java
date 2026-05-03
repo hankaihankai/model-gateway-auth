@@ -59,6 +59,50 @@ public interface UserMapper {
     SysUser selectByUserId(Long userId);
 
     /**
+     * 根据手机号查询用户。
+     *
+     * @param phone 手机号
+     * @return 系统用户
+     */
+    @Select("""
+            SELECT
+                user_id AS userId,
+                username,
+                password,
+                nickname,
+                phone,
+                email,
+                role,
+                status
+            FROM sys_user
+            WHERE phone = #{phone}
+            LIMIT 1
+            """)
+    SysUser selectByPhone(String phone);
+
+    /**
+     * 根据邮箱查询用户。
+     *
+     * @param email 邮箱
+     * @return 系统用户
+     */
+    @Select("""
+            SELECT
+                user_id AS userId,
+                username,
+                password,
+                nickname,
+                phone,
+                email,
+                role,
+                status
+            FROM sys_user
+            WHERE email = #{email}
+            LIMIT 1
+            """)
+    SysUser selectByEmail(String email);
+
+    /**
      * 新增系统用户。
      *
      * @param user 系统用户

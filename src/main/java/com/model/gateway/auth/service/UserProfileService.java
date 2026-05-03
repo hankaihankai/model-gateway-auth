@@ -309,7 +309,19 @@ public class UserProfileService {
         return transactionTemplate.execute(status -> {
             SysUser exists = userMapper.selectByUsername(request.getUsername());
             if (exists != null) {
-                throw new AuthException("用户名已存在或正在创建中");
+                throw new AuthException("用户名已存在");
+            }
+            if (StringUtils.hasText(request.getPhone())) {
+                SysUser phoneExists = userMapper.selectByPhone(request.getPhone());
+                if (phoneExists != null) {
+                    throw new AuthException("手机号已存在");
+                }
+            }
+            if (StringUtils.hasText(request.getEmail())) {
+                SysUser emailExists = userMapper.selectByEmail(request.getEmail());
+                if (emailExists != null) {
+                    throw new AuthException("邮箱已存在");
+                }
             }
             SysUser user = SysUser.builder()
                     .username(request.getUsername())

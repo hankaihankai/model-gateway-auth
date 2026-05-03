@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `uk_sys_user_username` (`username`),
+  UNIQUE KEY `uk_sys_user_phone` (`phone`),
+  UNIQUE KEY `uk_sys_user_email` (`email`),
   KEY `idx_sys_user_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统用户表';
 
