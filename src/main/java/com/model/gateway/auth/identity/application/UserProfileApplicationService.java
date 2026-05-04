@@ -12,11 +12,15 @@ import com.model.gateway.auth.newapi.domain.model.UserNewApiBindingLog;
 import com.model.gateway.auth.identity.domain.model.SysUser;
 import com.model.gateway.auth.newapi.domain.model.UserNewApiBinding;
 import com.model.gateway.auth.identity.interfaces.dto.UserAmountUpdateRequest;
+import com.model.gateway.auth.identity.interfaces.dto.AdminUserCreateRequest;
 import com.model.gateway.auth.identity.interfaces.dto.UserCreateRequest;
 import com.model.gateway.auth.shared.exception.AuthException;
 import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
 import com.model.gateway.auth.newapi.infrastructure.persistence.mapper.UserNewApiBindingMapper;
 import com.model.gateway.auth.newapi.infrastructure.persistence.mapper.UserNewApiBindingLogMapper;
+import com.model.gateway.auth.identity.interfaces.vo.AdminUserDetailVo;
+import com.model.gateway.auth.identity.interfaces.vo.AdminUserListItemVo;
+import com.model.gateway.auth.identity.interfaces.vo.AdminUserListPageVo;
 import com.model.gateway.auth.identity.interfaces.vo.UserCreateResponse;
 import com.model.gateway.auth.identity.interfaces.vo.UserProfileVo;
 import com.model.gateway.auth.identity.interfaces.vo.UserTokenRecordsVo;
@@ -195,19 +199,50 @@ public class UserProfileApplicationService {
     }
 
     /**
-     * 创建系统用户。
+     * 创建系统用户(公开注册,强制绑定 new-api)。
      *
      * @param request 创建用户请求
      * @return 创建用户响应
      */
     public UserCreateResponse createUser(UserCreateRequest request) {
+        return createUserInternal(request, true);
+    }
+
+    /**
+     * 管理员创建用户。
+     *
+     * @param request 管理员创建用户请求
+     * @return 创建用户响应
+     */
+    public UserCreateResponse adminCreateUser(AdminUserCreateRequest request) {
+        UserCreateRequest userRequest = UserCreateRequest.builder()
+                .username(request.getUsername())
+                .password(request.getPassword())
+                .nickname(request.getNickname())
+                .phone(request.getPhone())
+                .email(request.getEmail())
+                .build();
+        boolean bindNewApi = request.getBindNewApi() == null || request.getBindNewApi();
+        return createUserInternal(userRequest, bindNewApi);
+    }
+
+    /**
+     * 内部创建用户逻辑。
+     *
+     * @param request 创建用户请求
+     * @param bindNewApi 是否绑定 new-api
+     * @return 创建用户响应
+     */
+    private UserCreateResponse createUserInternal(UserCreateRequest request, boolean bindNewApi) {
         checkCreateRequest(request);
         RegisterContext context = createPendingUser(request);
-        bindNewApiUser(context, request);
+        if (bindNewApi) {
+            bindNewApiUser(context, request);
+        }
         return UserCreateResponse.builder()
                 .userId(context.getUserId())
                 .username(context.getUsername())
-                .newApiBound(Boolean.TRUE)
+                .newApiBound(bindNewApi)
                 .build();
     }
 
@@ -259,6 +294,143 @@ public class UserProfileApplicationService {
         Long userId = StpUtil.getLoginIdAsLong();
         UserNewApiBinding binding = newApiBindingService.getBinding(userId);
         return newApiUserAcl.getUserModels(binding.getNewApiUserId());
+    }
+
+    /**
+     * 管理员查询用户列表。
+     *
+     * @param username 用户名(模糊)
+     * @param role 角色
+     * @param status 状态
+     * @param pageNo 页码
+     * @param pageSize 每页数量
+     * @return 用户列表分页
+     */
+    public AdminUserListPageVo adminListUsers(String username, String role, Integer status, int pageNo, int pageSize) {
+        int offset = (pageNo - 1) * pageSize;
+        long total = userMapper.selectCountByCondition(username, role, status);
+        List<SysUser> users = userMapper.selectListByCondition(username, role, status, offset, pageSize);
+        List<AdminUserListItemVo> list = users.stream()
+                .map(this::buildAdminListItem)
+                .toList();
+        return AdminUserListPageVo.builder()
+                .list(list)
+                .total(total)
+                .pageNo(pageNo)
+                .pageSize(pageSize)
+                .build();
+    }
+
+    /**
+     * 构建管理员列表项。
+     *
+     * @param user 系统用户
+     * @return 管理员列表项
+     */
+    private AdminUserListItemVo buildAdminListItem(SysUser user) {
+        UserNewApiBinding binding = bindingMapper.selectByUserId(user.getUserId());
+        boolean newApiBound = binding != null && binding.getNewApiUserId() != null;
+        return AdminUserListItemVo.builder()
+                .userId(user.getUserId())
+                .username(user.getUsername())
+                .nickname(user.getNickname())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .status(user.getStatus())
+                .newApiBound(newApiBound)
+                .build();
+    }
+
+    /**
+     * 管理员查询用户详情。
+     *
+     * @param userId 用户ID
+     * @return 用户详情
+     */
+    public AdminUserDetailVo adminGetUserDetail(Long userId) {
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        UserNewApiBinding binding = bindingMapper.selectByUserId(userId);
+        boolean newApiBound = binding != null && binding.getNewApiUserId() != null;
+
+        AdminUserDetailVo.AdminUserDetailVoBuilder builder = AdminUserDetailVo.builder()
+                .userId(user.getUserId())
+                .username(user.getUsername())
+                .nickname(user.getNickname())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .status(user.getStatus())
+                .newApiBound(newApiBound);
+
+        if (binding != null) {
+            builder.newApiUserId(binding.getNewApiUserId())
+                    .newApiUserName(binding.getNewApiUserName())
+                    .newApiStatus(binding.getStatus());
+        }
+
+        if (newApiBound) {
+            NewApiUserAcl.NewApiUserStatsData stats = newApiUserAcl.getUserStats(binding.getNewApiUserId(), null, null);
+            NewApiUserAcl.AccountData accountData = stats.getAccountData();
+            if (accountData != null) {
+                builder.currentBalanceAmount(accountData.getCurrentBalanceAmount())
+                        .usedQuotaAmount(accountData.getUsedQuotaAmount())
+                        .totalQuotaAmount(accountData.getTotalQuotaAmount())
+                        .quota(accountData.getQuota())
+                        .usedQuota(accountData.getUsedQuota())
+                        .totalQuota(accountData.getTotalQuota())
+                        .quotaPerUnit(accountData.getQuotaPerUnit());
+            }
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * 管理员查询用户Token使用记录。
+     *
+     * @param userId 用户ID
+     * @param pageNo 页码
+     * @param pageSize 每页数量
+     * @param startTimestamp 开始Unix时间戳秒
+     * @param endTimestamp 结束Unix时间戳秒
+     * @param modelName 模型名称
+     * @return Token使用记录分页
+     */
+    public UserTokenRecordsVo adminGetTokenRecords(
+            Long userId,
+            Integer pageNo,
+            Integer pageSize,
+            Long startTimestamp,
+            Long endTimestamp,
+            String modelName) {
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        UserNewApiBinding binding = bindingMapper.selectByUserId(userId);
+        if (binding == null || binding.getNewApiUserId() == null) {
+            return UserTokenRecordsVo.builder()
+                    .page(pageNo != null ? pageNo : 1)
+                    .pageSize(pageSize != null ? pageSize : 10)
+                    .total(0L)
+                    .items(Collections.emptyList())
+                    .build();
+        }
+        NewApiUserAcl.NewApiQuotaRecordsData records = newApiUserAcl.getQuotaRecords(
+                binding.getNewApiUserId(), pageNo, pageSize, startTimestamp, endTimestamp, modelName);
+        List<NewApiUserAcl.QuotaRecordItem> items = records.getItems() == null
+                ? Collections.emptyList()
+                : records.getItems();
+        return UserTokenRecordsVo.builder()
+                .page(records.getPage())
+                .pageSize(records.getPageSize())
+                .total(records.getTotal())
+                .items(items.stream().map(this::buildTokenRecordItem).toList())
+                .build();
     }
 
     /**
