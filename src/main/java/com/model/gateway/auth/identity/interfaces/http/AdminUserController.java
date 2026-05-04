@@ -8,6 +8,7 @@ import com.model.gateway.auth.identity.interfaces.vo.AdminUserDetailVo;
 import com.model.gateway.auth.identity.interfaces.vo.AdminUserListPageVo;
 import com.model.gateway.auth.identity.interfaces.vo.UserCreateResponse;
 import com.model.gateway.auth.identity.interfaces.vo.UserTokenRecordsVo;
+import cn.dev33.satoken.annotation.SaCheckRole;
 import com.model.gateway.auth.identity.application.UserProfileApplicationService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,6 +26,7 @@ import java.time.format.DateTimeParseException;
 /**
  * 管理员用户接口控制器。
  */
+@SaCheckRole("ADMIN")
 @RestController
 @RequestMapping("/api/admin/users")
 public class AdminUserController {
