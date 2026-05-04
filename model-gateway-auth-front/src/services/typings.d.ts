@@ -29,7 +29,7 @@ declare namespace API {
   }
 
   /**
-   * 用户列表（mock）单条。
+   * 用户列表单项。
    */
   interface UserListItem {
     userId: number;
@@ -116,6 +116,7 @@ declare namespace API {
   interface UserCreateResponse {
     userId: number;
     username: string;
+    newApiBound: boolean;
   }
 
   /**
@@ -123,19 +124,20 @@ declare namespace API {
    */
   interface UserTokenRecordItem {
     id: number;
-    userId: number;
+    newApiUserId?: number;
+    newApiUserName?: string;
     modelName: string;
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    createdAt: string;
+    createdAt: number;
+    tokenUsed: number;
+    count: number;
+    quota: number;
   }
 
   /**
    * 用户 Token 使用记录分页响应。
    */
   interface UserTokenRecordsVo {
-    list: UserTokenRecordItem[];
+    items: UserTokenRecordItem[];
     total: number;
     pageNo: number;
     pageSize: number;
