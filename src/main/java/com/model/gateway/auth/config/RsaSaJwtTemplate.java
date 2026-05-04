@@ -5,7 +5,8 @@ import cn.dev33.satoken.jwt.exception.SaJwtException;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.signers.JWTSigner;
 import cn.hutool.jwt.signers.JWTSignerUtil;
-import com.model.gateway.auth.support.SecretFileUtils;
+import com.model.gateway.auth.identity.infrastructure.config.GatewayJwtProperties;
+import com.model.gateway.auth.shared.util.SecretFileUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 

@@ -7,7 +7,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 /**
  * 模型网关认证服务启动类。
  */
-@MapperScan("com.model.gateway.auth.mapper")
+@MapperScan({
+    "com.model.gateway.auth.identity.infrastructure.persistence.mapper",
+    "com.model.gateway.auth.newapi.infrastructure.persistence.mapper"
+})
 @SpringBootApplication
 public class ModelGatewayAuthApplication {
 

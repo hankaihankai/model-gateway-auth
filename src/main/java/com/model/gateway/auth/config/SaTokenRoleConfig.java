@@ -1,8 +1,8 @@
 package com.model.gateway.auth.config;
 
 import cn.dev33.satoken.stp.StpInterface;
-import com.model.gateway.auth.domain.SysUser;
-import com.model.gateway.auth.mapper.UserMapper;
+import com.model.gateway.auth.identity.domain.model.SysUser;
+import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
