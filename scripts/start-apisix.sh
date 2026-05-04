@@ -186,7 +186,7 @@ docker compose --env-file "$ENV_FILE" down --remove-orphans
 
 echo ""
 echo "  正在启动 APISIX、etcd、Dashboard..."
-docker compose --env-file "$ENV_FILE" up -d
+docker compose --env-file "$ENV_FILE" up -d --build
 
 echo "  ✓ APISIX、etcd、Dashboard 已启动"
 
