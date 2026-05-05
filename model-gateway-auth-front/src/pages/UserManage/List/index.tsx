@@ -3,7 +3,7 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { App, Button, Tag, Modal, Form, Input, Switch } from 'antd';
 import React, { useRef, useState } from 'react';
 import { Link } from '@umijs/max';
-import { listUsers, createUser, bindNewApi, updateUserStatus } from '@/services/user';
+import { listUsers, createUser, bindNewApi, updateUserStatus, testAiCall } from '@/services/user';
 
 // ProColumns 类型中无 hideInSearch，使用 search: false 替代以避免类型错误
 const col = (c: ProColumns<API.UserListItem> & { hideInSearch?: boolean }): ProColumns<API.UserListItem> => c;
@@ -25,6 +25,11 @@ const UserList: React.FC = () => {
   const actionRef = useRef<any>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createForm] = Form.useForm();
+  const [testAiModalOpen, setTestAiModalOpen] = useState(false);
+  const [testAiUserId, setTestAiUserId] = useState<number | null>(null);
+  const [testAiForm] = Form.useForm();
+  const [testAiResult, setTestAiResult] = useState<string>('');
+  const [testAiLoading, setTestAiLoading] = useState(false);
 
   const handleCreate = async (values: any) => {
     await createUser({
@@ -35,6 +40,20 @@ const UserList: React.FC = () => {
     setCreateModalOpen(false);
     createForm.resetFields();
     actionRef.current?.reload();
+  };
+
+  const handleTestAi = async (values: any) => {
+    if (!testAiUserId) return;
+    setTestAiLoading(true);
+    try {
+      const res = await testAiCall(testAiUserId, { content: values.content });
+      setTestAiResult(JSON.stringify(res, null, 2));
+      message.success('调用成功');
+    } catch (error: any) {
+      message.error(error?.message || '调用失败');
+    } finally {
+      setTestAiLoading(false);
+    }
   };
 
   const columns: ProColumns<API.UserListItem>[] = [
@@ -119,7 +138,7 @@ const UserList: React.FC = () => {
     {
       title: '操作',
       valueType: 'option',
-      width: 120,
+      width: 160,
       render: (_, record) => [
         <Link key="view" to={`/user-manage/detail/${record.userId}`}>
           查看
@@ -138,6 +157,19 @@ const UserList: React.FC = () => {
             }}
           >
             绑定
+          </a>
+        ),
+        record.newApiBound && (
+          <a
+            key="testAi"
+            onClick={() => {
+              setTestAiUserId(record.userId);
+              setTestAiModalOpen(true);
+              setTestAiResult('');
+              testAiForm.resetFields();
+            }}
+          >
+            测试AI
           </a>
         ),
       ],
@@ -211,6 +243,47 @@ const UserList: React.FC = () => {
             <Switch />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        title={`测试AI调用 (用户 #${testAiUserId})`}
+        open={testAiModalOpen}
+        onOk={() => testAiForm.submit()}
+        onCancel={() => {
+          setTestAiModalOpen(false);
+          setTestAiResult('');
+          testAiForm.resetFields();
+          setTestAiUserId(null);
+        }}
+        destroyOnClose
+        confirmLoading={testAiLoading}
+      >
+        <Form form={testAiForm} onFinish={handleTestAi} layout="vertical">
+          <Form.Item
+            name="content"
+            label="消息内容"
+            initialValue="hello"
+            rules={[{ required: true, message: '请输入消息内容' }]}
+          >
+            <Input.TextArea rows={3} placeholder="请输入要发送的消息" />
+          </Form.Item>
+        </Form>
+        {testAiResult && (
+          <div style={{ marginTop: 16 }}>
+            <p style={{ fontWeight: 'bold', marginBottom: 8 }}>响应结果：</p>
+            <pre
+              style={{
+                background: '#f6f8fa',
+                padding: 12,
+                borderRadius: 4,
+                maxHeight: 300,
+                overflow: 'auto',
+                fontSize: 12,
+              }}
+            >
+              {testAiResult}
+            </pre>
+          </div>
+        )}
       </Modal>
     </PageContainer>
   );

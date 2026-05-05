@@ -67,3 +67,13 @@ export async function updateUserAmount(userId: number, body: API.UserAmountUpdat
     data: body,
   });
 }
+
+/**
+ * 管理员测试用户AI调用。
+ */
+export async function testAiCall(userId: number, body: API.TestAiCallRequest) {
+  return request<API.TestAiCallResponse>(`/model-gateway-auth/api/admin/users/${userId}/test-ai-call`, {
+    method: 'POST',
+    data: body,
+  });
+}

@@ -11,9 +11,11 @@ import com.model.gateway.auth.identity.domain.model.LoginUser;
 import com.model.gateway.auth.newapi.domain.model.UserNewApiBindingLog;
 import com.model.gateway.auth.identity.domain.model.SysUser;
 import com.model.gateway.auth.newapi.domain.model.UserNewApiBinding;
+import com.model.gateway.auth.identity.interfaces.dto.TestAiCallRequest;
 import com.model.gateway.auth.identity.interfaces.dto.UserAmountUpdateRequest;
 import com.model.gateway.auth.identity.interfaces.dto.AdminUserCreateRequest;
 import com.model.gateway.auth.identity.interfaces.dto.UserCreateRequest;
+import com.model.gateway.auth.newapi.infrastructure.config.NewApiUserManagerProperties;
 import com.model.gateway.auth.shared.exception.AuthException;
 import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
 import com.model.gateway.auth.newapi.infrastructure.persistence.mapper.UserNewApiBindingMapper;
@@ -29,12 +31,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -124,6 +134,16 @@ public class UserProfileApplicationService {
     private final TransactionTemplate transactionTemplate;
 
     /**
+     * new-api外部用户管理接口配置。
+     */
+    private final NewApiUserManagerProperties newApiProperties;
+
+    /**
+     * REST客户端构建器。
+     */
+    private final RestClient.Builder restClientBuilder;
+
+    /**
      * 安全随机数。
      */
     private final SecureRandom secureRandom = new SecureRandom();
@@ -148,7 +168,9 @@ public class UserProfileApplicationService {
             NewApiBindingApplicationService newApiBindingService,
             GatewayCredentialCacheService gatewayCredentialCacheService,
             BCryptPasswordEncoder passwordEncoder,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate,
+            NewApiUserManagerProperties newApiProperties,
+            RestClient.Builder restClientBuilder) {
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
         this.bindingLogMapper = bindingLogMapper;
@@ -157,6 +179,8 @@ public class UserProfileApplicationService {
         this.gatewayCredentialCacheService = gatewayCredentialCacheService;
         this.passwordEncoder = passwordEncoder;
         this.transactionTemplate = transactionTemplate;
+        this.newApiProperties = newApiProperties;
+        this.restClientBuilder = restClientBuilder;
     }
 
     /**
@@ -485,6 +509,62 @@ public class UserProfileApplicationService {
                 .total(records.getTotal())
                 .items(items.stream().map(this::buildTokenRecordItem).toList())
                 .build();
+    }
+
+    /**
+     * 管理员测试用户AI调用。
+     *
+     * @param userId 用户ID
+     * @param request 测试AI调用请求
+     * @return AI调用响应
+     */
+    public Map<String, Object> adminTestAiCall(Long userId, TestAiCallRequest request) {
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        UserNewApiBinding binding = newApiBindingService.getBinding(userId);
+        List<String> models = newApiUserAcl.getUserModels(binding.getNewApiUserId());
+        if (models == null || models.isEmpty()) {
+            throw new AuthException("该用户无可用的AI模型");
+        }
+        String model = models.get(0);
+        String content = StringUtils.hasText(request.getContent()) ? request.getContent() : "hello";
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "messages", List.of(Map.of("role", "user", "content", content))
+        );
+        return callChatCompletions(binding.getNewApiApiKey(), body);
+    }
+
+    /**
+     * 调用new-api聊天补全接口。
+     *
+     * @param apiKey 用户API密钥
+     * @param body 请求体
+     * @return 响应体
+     */
+    private Map<String, Object> callChatCompletions(String apiKey, Map<String, Object> body) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(10));
+        factory.setReadTimeout(Duration.ofSeconds(60));
+        RestClient client = restClientBuilder.requestFactory(factory).build();
+        String baseUrl = newApiProperties.getBaseUrl();
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        try {
+            return client.post()
+                    .uri(baseUrl + "/v1/chat/completions")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .body(body)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<Map<String, Object>>() {
+                    });
+        } catch (RuntimeException exception) {
+            throw new AuthException("AI调用失败: " + exception.getMessage());
+        }
     }
 
     /**
