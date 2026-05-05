@@ -125,10 +125,10 @@ const UserList: React.FC = () => {
             role: rest.role as API.UserListQuery['role'],
             status: rest.status !== undefined ? (Number(rest.status) as 0 | 1 | 2 | 3) : undefined,
           });
-          if (!res) {
-            return { success: false, data: [], total: 0 };
-          }
-          return { success: true, data: res.list, total: res.total };
+          // Umi request 在配置了 errorConfig 时会自动提取 res.data，此处兼容两种格式
+          const data = (res as any)?.list ?? (res as any)?.data?.list ?? [];
+          const total = (res as any)?.total ?? (res as any)?.data?.total ?? 0;
+          return { success: true, data, total };
         }}
         pagination={{ defaultPageSize: 10, pageSizeOptions: ['10', '20', '50'] }}
         search={{ labelWidth: 'auto' }}

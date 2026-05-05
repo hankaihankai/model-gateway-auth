@@ -86,10 +86,10 @@ const UserDetail: React.FC = () => {
               pageNo: params.current,
               pageSize: params.pageSize,
             });
-            if (!res) {
-              return { success: false, data: [], total: 0 };
-            }
-            return { success: true, data: res.items, total: res.total };
+            // 兼容 Umi request 自动解包 data 的情况
+            const data = (res as any)?.items ?? (res as any)?.data?.items ?? [];
+            const total = (res as any)?.total ?? (res as any)?.data?.total ?? 0;
+            return { success: true, data, total };
           }}
           pagination={{ defaultPageSize: 10 }}
         />
