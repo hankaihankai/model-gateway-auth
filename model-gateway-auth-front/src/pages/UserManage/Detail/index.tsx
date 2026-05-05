@@ -1,13 +1,25 @@
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { Card, Tabs, Descriptions, Tag, Skeleton } from 'antd';
+import { Card, Tabs, Descriptions, Tag, Skeleton, Button, Modal, Form, InputNumber, Radio } from 'antd';
 import { useParams, useRequest } from '@umijs/max';
-import React from 'react';
-import { getUserDetail, getUserTokenRecords } from '@/services/user';
+import React, { useState } from 'react';
+import { getUserDetail, getUserTokenRecords, updateUserAmount } from '@/services/user';
 
 const UserDetail: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
   const id = Number(userId);
   const { data: detail, loading: detailLoading } = useRequest(() => getUserDetail(id));
+  const [amountModalOpen, setAmountModalOpen] = useState(false);
+  const [amountForm] = Form.useForm();
+
+  const handleAmount = async (values: any) => {
+    await updateUserAmount(id, {
+      mode: values.mode,
+      amount: values.amount,
+    });
+    setAmountModalOpen(false);
+    amountForm.resetFields();
+    window.location.reload();
+  };
 
   const recordColumns = [
     { title: 'ID', dataIndex: 'id', width: 80 },
@@ -63,7 +75,10 @@ const UserDetail: React.FC = () => {
         <Skeleton active paragraph={{ rows: 4 }} />
       ) : (
         <Descriptions bordered column={2}>
-          <Descriptions.Item label="当前余额">{detail?.currentBalanceAmount ?? '-'}</Descriptions.Item>
+          <Descriptions.Item label="当前余额">
+            <span>{detail?.currentBalanceAmount ?? '-'}</span>
+            <Button type="link" size="small" onClick={() => setAmountModalOpen(true)}>充值</Button>
+          </Descriptions.Item>
           <Descriptions.Item label="已用额度">{detail?.usedQuotaAmount ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="总额度">{detail?.totalQuotaAmount ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="剩余额度(原始)">{detail?.quota ?? '-'}</Descriptions.Item>
@@ -71,6 +86,29 @@ const UserDetail: React.FC = () => {
           <Descriptions.Item label="总额度(原始)">{detail?.totalQuota ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="换算比例">{detail?.quotaPerUnit ?? '-'}</Descriptions.Item>
         </Descriptions>
+        <Modal
+          title="充值"
+          open={amountModalOpen}
+          onOk={() => amountForm.submit()}
+          onCancel={() => {
+            setAmountModalOpen(false);
+            amountForm.resetFields();
+          }}
+          destroyOnClose
+        >
+          <Form form={amountForm} onFinish={handleAmount} layout="vertical">
+            <Form.Item name="mode" label="操作类型" initialValue="add" rules={[{ required: true }]}>
+              <Radio.Group>
+                <Radio value="add">增加</Radio>
+                <Radio value="subtract">减少</Radio>
+                <Radio value="override">覆盖</Radio>
+              </Radio.Group>
+            </Form.Item>
+            <Form.Item name="amount" label="金额" rules={[{ required: true, message: '请输入金额' }]}>
+              <InputNumber style={{ width: '100%' }} precision={2} min={0} placeholder="请输入金额" />
+            </Form.Item>
+          </Form>
+        </Modal>
       ),
     },
     {
