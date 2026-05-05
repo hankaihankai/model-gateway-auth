@@ -1,0 +1,21 @@
+services:
+  model-gateway-auth-front:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: model-gateway-auth-front:latest
+    container_name: model-gateway-auth-front
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AUTH_API_UPSTREAM: ${AUTH_API_UPSTREAM:-http://apisix:9080}
+      NGINX_ENVSUBST_FILTER: "^AUTH_API_UPSTREAM$"
+    ports:
+      - "${FRONT_PORT:-8000}:80"
+    networks:
+      - new-api-network
+
+networks:
+  new-api-network:
+    external: true
+    name: new-api-network

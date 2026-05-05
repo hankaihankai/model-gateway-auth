@@ -7,6 +7,8 @@ const { REACT_APP_ENV = 'dev' } = process.env;
 
 export default defineConfig({
   hash: true,
+  // 启用 esbuild IIFE 压缩，避免异步 chunk 中 helper 命名冲突导致生产构建失败。
+  esbuildMinifyIIFE: true,
   routes,
   proxy: (proxy as any)[REACT_APP_ENV],
   fastRefresh: true,
