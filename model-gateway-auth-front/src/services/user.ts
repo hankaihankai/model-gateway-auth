@@ -69,11 +69,10 @@ export async function updateUserAmount(userId: number, body: API.UserAmountUpdat
 }
 
 /**
- * 管理员测试用户AI调用。
+ * 管理员获取用户网关Token。
  */
-export async function testAiCall(userId: number, body: API.TestAiCallRequest) {
-  return request<API.TestAiCallResponse>(`/model-gateway-auth/api/admin/users/${userId}/test-ai-call`, {
-    method: 'POST',
-    data: body,
+export async function getUserGatewayToken(userId: number) {
+  return request<string>(`/model-gateway-auth/api/admin/users/${userId}/gateway-token`, {
+    method: 'GET',
   });
 }

@@ -3,7 +3,6 @@ package com.model.gateway.auth.identity.interfaces.http;
 import com.model.gateway.auth.shared.api.ApiResponse;
 import com.model.gateway.auth.shared.exception.AuthException;
 import com.model.gateway.auth.identity.interfaces.dto.AdminUserCreateRequest;
-import com.model.gateway.auth.identity.interfaces.dto.TestAiCallRequest;
 import com.model.gateway.auth.identity.interfaces.dto.UserAmountUpdateRequest;
 import com.model.gateway.auth.identity.interfaces.vo.AdminUserDetailVo;
 import com.model.gateway.auth.identity.interfaces.vo.AdminUserListPageVo;
@@ -23,7 +22,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.Map;
 
 /**
  * 管理员用户接口控制器。
@@ -90,17 +88,14 @@ public class AdminUserController {
     }
 
     /**
-     * 管理员测试用户AI调用。
+     * 管理员查询用户网关Token。
      *
      * @param userId 用户ID
-     * @param request 测试AI调用请求
-     * @return AI调用响应
+     * @return 用户网关JWT Token
      */
-    @PostMapping("/{userId}/test-ai-call")
-    public ApiResponse<Map<String, Object>> testAiCall(
-            @PathVariable Long userId,
-            @RequestBody TestAiCallRequest request) {
-        return ApiResponse.success(userProfileService.adminTestAiCall(userId, request));
+    @GetMapping("/{userId}/gateway-token")
+    public ApiResponse<String> gatewayToken(@PathVariable Long userId) {
+        return ApiResponse.success(userProfileService.adminGetGatewayToken(userId));
     }
 
     /**

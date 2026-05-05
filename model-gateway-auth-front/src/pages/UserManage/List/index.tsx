@@ -3,7 +3,7 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { App, Button, Tag, Modal, Form, Input, Switch } from 'antd';
 import React, { useRef, useState } from 'react';
 import { Link } from '@umijs/max';
-import { listUsers, createUser, bindNewApi, updateUserStatus, testAiCall } from '@/services/user';
+import { listUsers, createUser, bindNewApi, updateUserStatus, getUserGatewayToken } from '@/services/user';
 
 // ProColumns 类型中无 hideInSearch，使用 search: false 替代以避免类型错误
 const col = (c: ProColumns<API.UserListItem> & { hideInSearch?: boolean }): ProColumns<API.UserListItem> => c;
@@ -46,7 +46,21 @@ const UserList: React.FC = () => {
     if (!testAiUserId) return;
     setTestAiLoading(true);
     try {
-      const res = await testAiCall(testAiUserId, { content: values.content });
+      const tokenRes = await getUserGatewayToken(testAiUserId);
+      const token = (tokenRes as any) ?? (tokenRes as any)?.data ?? tokenRes;
+      const body = JSON.parse(values.body);
+      const response = await fetch('/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res?.message || res?.error?.message || `HTTP ${response.status}`);
+      }
       setTestAiResult(JSON.stringify(res, null, 2));
       message.success('调用成功');
     } catch (error: any) {
@@ -259,12 +273,28 @@ const UserList: React.FC = () => {
       >
         <Form form={testAiForm} onFinish={handleTestAi} layout="vertical">
           <Form.Item
-            name="content"
-            label="消息内容"
-            initialValue="hello"
-            rules={[{ required: true, message: '请输入消息内容' }]}
+            name="body"
+            label="请求体 (OpenAI 格式)"
+            initialValue={JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [{ role: 'user', content: 'hello' }],
+            }, null, 2)}
+            rules={[
+              { required: true, message: '请输入请求体' },
+              {
+                validator: (_, value) => {
+                  if (!value) return Promise.resolve();
+                  try {
+                    JSON.parse(value);
+                    return Promise.resolve();
+                  } catch {
+                    return Promise.reject(new Error('请求体必须是合法的 JSON'));
+                  }
+                },
+              },
+            ]}
           >
-            <Input.TextArea rows={3} placeholder="请输入要发送的消息" />
+            <Input.TextArea rows={8} placeholder="请输入 OpenAI 格式的请求体 JSON" />
           </Form.Item>
         </Form>
         {testAiResult && (
