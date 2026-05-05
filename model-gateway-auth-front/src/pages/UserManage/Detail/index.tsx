@@ -74,19 +74,20 @@ const UserDetail: React.FC = () => {
       children: detailLoading ? (
         <Skeleton active paragraph={{ rows: 4 }} />
       ) : (
-        <Descriptions bordered column={2}>
-          <Descriptions.Item label="当前余额">
-            <span>{detail?.currentBalanceAmount ?? '-'}</span>
-            <Button type="link" size="small" onClick={() => setAmountModalOpen(true)}>充值</Button>
-          </Descriptions.Item>
-          <Descriptions.Item label="已用额度">{detail?.usedQuotaAmount ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="总额度">{detail?.totalQuotaAmount ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="剩余额度(原始)">{detail?.quota ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="已用额度(原始)">{detail?.usedQuota ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="总额度(原始)">{detail?.totalQuota ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="换算比例">{detail?.quotaPerUnit ?? '-'}</Descriptions.Item>
-        </Descriptions>
-        <Modal
+        <>
+          <Descriptions bordered column={2}>
+            <Descriptions.Item label="当前余额">
+              <span>{detail?.currentBalanceAmount ?? '-'}</span>
+              <Button type="link" size="small" onClick={() => setAmountModalOpen(true)}>充值</Button>
+            </Descriptions.Item>
+            <Descriptions.Item label="已用额度">{detail?.usedQuotaAmount ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label="总额度">{detail?.totalQuotaAmount ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label="剩余额度(原始)">{detail?.quota ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label="已用额度(原始)">{detail?.usedQuota ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label="总额度(原始)">{detail?.totalQuota ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label="换算比例">{detail?.quotaPerUnit ?? '-'}</Descriptions.Item>
+          </Descriptions>
+          <Modal
           title="充值"
           open={amountModalOpen}
           onOk={() => amountForm.submit()}
@@ -109,6 +110,7 @@ const UserDetail: React.FC = () => {
             </Form.Item>
           </Form>
         </Modal>
+        </>
       ),
     },
     {
