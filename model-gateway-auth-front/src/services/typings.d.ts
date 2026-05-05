@@ -64,6 +64,14 @@ declare namespace API {
   }
 
   /**
+   * 管理员设置用户金额请求。
+   */
+  interface UserAmountUpdateRequest {
+    mode: 'add' | 'subtract' | 'override';
+    amount: number;
+  }
+
+  /**
    * 管理员创建用户请求。
    */
   interface AdminUserCreateRequest {

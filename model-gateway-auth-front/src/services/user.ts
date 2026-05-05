@@ -57,3 +57,13 @@ export async function updateUserStatus(userId: number, status: number) {
     params: { status },
   });
 }
+
+/**
+ * 管理员设置用户金额。
+ */
+export async function updateUserAmount(userId: number, body: API.UserAmountUpdateRequest) {
+  return request<void>(`/model-gateway-auth/api/admin/users/${userId}/amount`, {
+    method: 'POST',
+    data: body,
+  });
+}

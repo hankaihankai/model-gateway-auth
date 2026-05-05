@@ -1,9 +1,9 @@
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
-import { App, Button, Tag, Modal, Form, Input, Switch } from 'antd';
+import { App, Button, Tag, Modal, Form, Input, Switch, InputNumber, Radio } from 'antd';
 import React, { useRef, useState } from 'react';
 import { Link } from '@umijs/max';
-import { listUsers, createUser, bindNewApi, updateUserStatus } from '@/services/user';
+import { listUsers, createUser, bindNewApi, updateUserStatus, updateUserAmount } from '@/services/user';
 
 // ProColumns 类型中无 hideInSearch，使用 search: false 替代以避免类型错误
 const col = (c: ProColumns<API.UserListItem> & { hideInSearch?: boolean }): ProColumns<API.UserListItem> => c;
@@ -25,6 +25,9 @@ const UserList: React.FC = () => {
   const actionRef = useRef<any>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createForm] = Form.useForm();
+  const [amountModalOpen, setAmountModalOpen] = useState(false);
+  const [amountUserId, setAmountUserId] = useState<number | null>(null);
+  const [amountForm] = Form.useForm();
 
   const handleCreate = async (values: any) => {
     await createUser({
@@ -34,6 +37,19 @@ const UserList: React.FC = () => {
     message.success('创建成功');
     setCreateModalOpen(false);
     createForm.resetFields();
+    actionRef.current?.reload();
+  };
+
+  const handleAmount = async (values: any) => {
+    if (!amountUserId) return;
+    await updateUserAmount(amountUserId, {
+      mode: values.mode,
+      amount: values.amount,
+    });
+    message.success('充值成功');
+    setAmountModalOpen(false);
+    amountForm.resetFields();
+    setAmountUserId(null);
     actionRef.current?.reload();
   };
 
@@ -140,6 +156,15 @@ const UserList: React.FC = () => {
             绑定
           </a>
         ),
+        <a
+          key="amount"
+          onClick={() => {
+            setAmountUserId(record.userId);
+            setAmountModalOpen(true);
+          }}
+        >
+          充值
+        </a>,
       ],
     },
   ];
@@ -209,6 +234,30 @@ const UserList: React.FC = () => {
             initialValue={true}
           >
             <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        title={`充值 (用户 #${amountUserId})`}
+        open={amountModalOpen}
+        onOk={() => amountForm.submit()}
+        onCancel={() => {
+          setAmountModalOpen(false);
+          amountForm.resetFields();
+          setAmountUserId(null);
+        }}
+        destroyOnClose
+      >
+        <Form form={amountForm} onFinish={handleAmount} layout="vertical">
+          <Form.Item name="mode" label="操作类型" initialValue="add" rules={[{ required: true }]}>
+            <Radio.Group>
+              <Radio value="add">增加</Radio>
+              <Radio value="subtract">减少</Radio>
+              <Radio value="override">覆盖</Radio>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item name="amount" label="金额" rules={[{ required: true, message: '请输入金额' }]}>
+            <InputNumber style={{ width: '100%' }} precision={2} min={0} placeholder="请输入金额" />
           </Form.Item>
         </Form>
       </Modal>
