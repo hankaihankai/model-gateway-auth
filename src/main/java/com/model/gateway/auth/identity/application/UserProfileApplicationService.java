@@ -503,24 +503,6 @@ public class UserProfileApplicationService {
     }
 
     /**
-     * 管理员获取用户网关Token。
-     *
-     * @param userId 用户ID
-     * @return 用户网关JWT Token
-     */
-    public String adminGetGatewayToken(Long userId) {
-        SysUser user = userMapper.selectByUserId(userId);
-        if (user == null) {
-            throw new AuthException("用户不存在");
-        }
-        String token = StpUtil.getTokenValueByLoginId(userId);
-        if (token == null || StpUtil.getLoginIdByToken(token) == null) {
-            throw new AuthException("用户未登录或Token已过期");
-        }
-        return token;
-    }
-
-    /**
      * 管理员设置用户金额。
      *
      * @param userId 业务用户ID

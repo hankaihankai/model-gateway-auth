@@ -3,7 +3,7 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { App, Button, Tag, Modal, Form, Input, Switch } from 'antd';
 import React, { useRef, useState } from 'react';
 import { Link } from '@umijs/max';
-import { listUsers, createUser, bindNewApi, updateUserStatus, getUserGatewayToken, getUserModels } from '@/services/user';
+import { listUsers, createUser, bindNewApi, updateUserStatus, getUserModels } from '@/services/user';
 
 // ProColumns 类型中无 hideInSearch，使用 search: false 替代以避免类型错误
 const col = (c: ProColumns<API.UserListItem> & { hideInSearch?: boolean }): ProColumns<API.UserListItem> => c;
@@ -46,8 +46,10 @@ const UserList: React.FC = () => {
     if (!testAiUserId) return;
     setTestAiLoading(true);
     try {
-      const tokenRes = await getUserGatewayToken(testAiUserId);
-      const token = typeof tokenRes === 'string' ? tokenRes : ((tokenRes as any)?.data ?? '');
+      const token = localStorage.getItem('access_token') || '';
+      if (!token) {
+        throw new Error('登录Token不存在，请重新登录');
+      }
       const body = JSON.parse(values.body);
       const response = await fetch('/v1/chat/completions', {
         method: 'POST',

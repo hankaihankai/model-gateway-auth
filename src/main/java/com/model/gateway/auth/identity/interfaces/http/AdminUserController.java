@@ -89,17 +89,6 @@ public class AdminUserController {
     }
 
     /**
-     * 管理员查询用户网关Token。
-     *
-     * @param userId 用户ID
-     * @return 用户网关JWT Token
-     */
-    @GetMapping("/{userId}/gateway-token")
-    public ApiResponse<String> gatewayToken(@PathVariable Long userId) {
-        return ApiResponse.success(userProfileService.adminGetGatewayToken(userId));
-    }
-
-    /**
      * 管理员查询用户可用模型。
      *
      * @param userId 用户ID

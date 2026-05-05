@@ -69,15 +69,6 @@ export async function updateUserAmount(userId: number, body: API.UserAmountUpdat
 }
 
 /**
- * 管理员获取用户网关Token。
- */
-export async function getUserGatewayToken(userId: number) {
-  return request<string>(`/model-gateway-auth/api/admin/users/${userId}/gateway-token`, {
-    method: 'GET',
-  });
-}
-
-/**
  * 管理员查询用户可用模型。
  */
 export async function getUserModels(userId: number) {
