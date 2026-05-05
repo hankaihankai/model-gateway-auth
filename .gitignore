@@ -17,3 +17,6 @@ cert/*
 !cert/.gitkeep
 apisix/cert/*
 !apisix/cert/.gitkeep
+node_modules/
+/model-gateway-auth-front/docs/
+/docs/superpowers/plans/2026-05-04-ddd-mvp-implementation.md

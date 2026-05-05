@@ -1,10 +1,14 @@
+# syntax=docker/dockerfile:1.7
 FROM maven:3.9.9-eclipse-temurin-17 AS builder
 
 WORKDIR /build
-COPY pom.xml .
 COPY .mvn/docker-settings.xml /root/.m2/settings.xml
+COPY pom.xml .
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B dependency:go-offline
 COPY src ./src
-RUN mvn -q -DskipTests package
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B -DskipTests package
 
 FROM eclipse-temurin:17-jre
 
