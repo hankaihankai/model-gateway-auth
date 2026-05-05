@@ -106,6 +106,7 @@ export const request: RequestConfig = {
       } else {
         message.error('网络异常，请稍后重试');
       }
+      throw error;
     },
   },
   requestInterceptors: [
