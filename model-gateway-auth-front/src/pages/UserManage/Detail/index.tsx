@@ -7,9 +7,7 @@ import { getUserDetail, getUserTokenRecords } from '@/services/user';
 const UserDetail: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
   const id = Number(userId);
-  const { data: detailRes, loading: detailLoading } = useRequest(() => getUserDetail(id));
-
-  const detail = detailRes?.data;
+  const { data: detail, loading: detailLoading } = useRequest(() => getUserDetail(id));
 
   const recordColumns = [
     { title: 'ID', dataIndex: 'id', width: 80 },
@@ -88,10 +86,10 @@ const UserDetail: React.FC = () => {
               pageNo: params.current,
               pageSize: params.pageSize,
             });
-            if (res.code !== 200 || !res.data) {
+            if (!res) {
               return { success: false, data: [], total: 0 };
             }
-            return { success: true, data: res.data.items, total: res.data.total };
+            return { success: true, data: res.items, total: res.total };
           }}
           pagination={{ defaultPageSize: 10 }}
         />

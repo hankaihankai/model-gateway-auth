@@ -15,7 +15,7 @@ export async function login(body: { username: string; password: string }) {
  * 刷新 Token（本期不调用，留接口位）。
  */
 export async function refreshToken() {
-  return request<API.ApiResponse<API.LoginResponse>>('/model-gateway-auth/api/auth/refresh', {
+  return request<API.LoginResponse>('/model-gateway-auth/api/auth/refresh', {
     method: 'POST',
   });
 }

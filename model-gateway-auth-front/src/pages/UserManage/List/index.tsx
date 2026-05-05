@@ -123,12 +123,12 @@ const UserList: React.FC = () => {
             pageSize,
             username: rest.username,
             role: rest.role as API.UserListQuery['role'],
-            status: rest.status !== undefined ? (Number(rest.status) as 0 | 1) : undefined,
+            status: rest.status !== undefined ? (Number(rest.status) as 0 | 1 | 2 | 3) : undefined,
           });
-          if (res.code !== 200 || !res.data) {
+          if (!res) {
             return { success: false, data: [], total: 0 };
           }
-          return { success: true, data: res.data.list, total: res.data.total };
+          return { success: true, data: res.list, total: res.total };
         }}
         pagination={{ defaultPageSize: 10, pageSizeOptions: ['10', '20', '50'] }}
         search={{ labelWidth: 'auto' }}
