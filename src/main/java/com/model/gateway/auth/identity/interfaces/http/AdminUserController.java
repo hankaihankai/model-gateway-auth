@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 
 /**
  * 管理员用户接口控制器。
@@ -96,6 +97,17 @@ public class AdminUserController {
     @GetMapping("/{userId}/gateway-token")
     public ApiResponse<String> gatewayToken(@PathVariable Long userId) {
         return ApiResponse.success(userProfileService.adminGetGatewayToken(userId));
+    }
+
+    /**
+     * 管理员查询用户可用模型。
+     *
+     * @param userId 用户ID
+     * @return 可用模型列表
+     */
+    @GetMapping("/{userId}/models")
+    public ApiResponse<List<String>> getUserModels(@PathVariable Long userId) {
+        return ApiResponse.success(userProfileService.adminGetModels(userId));
     }
 
     /**

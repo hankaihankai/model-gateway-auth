@@ -76,3 +76,12 @@ export async function getUserGatewayToken(userId: number) {
     method: 'GET',
   });
 }
+
+/**
+ * 管理员查询用户可用模型。
+ */
+export async function getUserModels(userId: number) {
+  return request<string[]>(`/model-gateway-auth/api/admin/users/${userId}/models`, {
+    method: 'GET',
+  });
+}

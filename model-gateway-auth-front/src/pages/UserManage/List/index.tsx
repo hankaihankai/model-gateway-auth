@@ -3,7 +3,7 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { App, Button, Tag, Modal, Form, Input, Switch } from 'antd';
 import React, { useRef, useState } from 'react';
 import { Link } from '@umijs/max';
-import { listUsers, createUser, bindNewApi, updateUserStatus, getUserGatewayToken } from '@/services/user';
+import { listUsers, createUser, bindNewApi, updateUserStatus, getUserGatewayToken, getUserModels } from '@/services/user';
 
 // ProColumns 类型中无 hideInSearch，使用 search: false 替代以避免类型错误
 const col = (c: ProColumns<API.UserListItem> & { hideInSearch?: boolean }): ProColumns<API.UserListItem> => c;
@@ -176,11 +176,29 @@ const UserList: React.FC = () => {
         record.newApiBound && (
           <a
             key="testAi"
-            onClick={() => {
+            onClick={async () => {
               setTestAiUserId(record.userId);
               setTestAiModalOpen(true);
               setTestAiResult('');
               testAiForm.resetFields();
+              try {
+                const res = await getUserModels(record.userId);
+                const models = (res as any) ?? (res as any)?.data ?? [];
+                const model = Array.isArray(models) && models.length > 0 ? models[0] : 'gpt-4o-mini';
+                testAiForm.setFieldsValue({
+                  body: JSON.stringify({
+                    model,
+                    messages: [{ role: 'user', content: 'hello' }],
+                  }, null, 2),
+                });
+              } catch {
+                testAiForm.setFieldsValue({
+                  body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [{ role: 'user', content: 'hello' }],
+                  }, null, 2),
+                });
+              }
             }}
           >
             测试AI
@@ -275,10 +293,6 @@ const UserList: React.FC = () => {
           <Form.Item
             name="body"
             label="请求体 (OpenAI 格式)"
-            initialValue={JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [{ role: 'user', content: 'hello' }],
-            }, null, 2)}
             rules={[
               { required: true, message: '请输入请求体' },
               {

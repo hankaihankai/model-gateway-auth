@@ -488,6 +488,21 @@ public class UserProfileApplicationService {
     }
 
     /**
+     * 管理员查询用户可用模型。
+     *
+     * @param userId 用户ID
+     * @return 可用模型列表
+     */
+    public List<String> adminGetModels(Long userId) {
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        UserNewApiBinding binding = newApiBindingService.getBinding(userId);
+        return newApiUserAcl.getUserModels(binding.getNewApiUserId());
+    }
+
+    /**
      * 管理员获取用户网关Token。
      *
      * @param userId 用户ID
