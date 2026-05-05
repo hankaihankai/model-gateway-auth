@@ -3,7 +3,7 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { App, Button, Tag, Modal, Form, Input, Switch } from 'antd';
 import React, { useRef, useState } from 'react';
 import { Link } from '@umijs/max';
-import { listUsers, createUser, bindNewApi } from '@/services/user';
+import { listUsers, createUser, bindNewApi, updateUserStatus } from '@/services/user';
 
 // ProColumns 类型中无 hideInSearch，使用 search: false 替代以避免类型错误
 const col = (c: ProColumns<API.UserListItem> & { hideInSearch?: boolean }): ProColumns<API.UserListItem> => c;
@@ -94,6 +94,24 @@ const UserList: React.FC = () => {
       width: 100,
       valueEnum: STATUS_VALUE_ENUM,
       render: (_, record) => {
+        if (record.status === 0 || record.status === 1) {
+          return (
+            <Switch
+              checked={record.status === 0}
+              checkedChildren="启用"
+              unCheckedChildren="禁用"
+              onChange={async (checked) => {
+                try {
+                  await updateUserStatus(record.userId, checked ? 0 : 1);
+                  message.success('状态更新成功');
+                  actionRef.current?.reload();
+                } catch (error: any) {
+                  message.error(error?.message || '状态更新失败');
+                }
+              }}
+            />
+          );
+        }
         const cfg = STATUS_VALUE_ENUM[record.status];
         return <Tag color={cfg?.color}>{cfg?.text}</Tag>;
       },

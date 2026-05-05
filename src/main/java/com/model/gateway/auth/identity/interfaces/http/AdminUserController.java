@@ -73,6 +73,21 @@ public class AdminUserController {
     }
 
     /**
+     * 管理员修改用户状态。
+     *
+     * @param userId 用户ID
+     * @param status 目标状态
+     * @return 修改结果
+     */
+    @PostMapping("/{userId}/status")
+    public ApiResponse<Boolean> updateUserStatus(
+            @PathVariable Long userId,
+            @RequestParam Integer status) {
+        userProfileService.adminUpdateStatus(userId, status);
+        return ApiResponse.success(Boolean.TRUE);
+    }
+
+    /**
      * 管理员查询用户列表。
      *
      * @param pageNo 页码

@@ -297,6 +297,20 @@ public class UserProfileApplicationService {
     }
 
     /**
+     * 管理员修改用户状态。
+     *
+     * @param userId 用户ID
+     * @param status 目标状态
+     */
+    public void adminUpdateStatus(Long userId, Integer status) {
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        userMapper.updateStatus(userId, status);
+    }
+
+    /**
      * 管理员为已有用户补绑 new-api。
      *
      * @param userId 用户ID

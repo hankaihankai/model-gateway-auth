@@ -47,3 +47,13 @@ export async function bindNewApi(userId: number) {
     method: 'POST',
   });
 }
+
+/**
+ * 管理员修改用户状态。
+ */
+export async function updateUserStatus(userId: number, status: number) {
+  return request<void>(`/model-gateway-auth/api/admin/users/${userId}/status`, {
+    method: 'POST',
+    params: { status },
+  });
+}
