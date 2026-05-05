@@ -47,7 +47,7 @@ const UserList: React.FC = () => {
     setTestAiLoading(true);
     try {
       const tokenRes = await getUserGatewayToken(testAiUserId);
-      const token = (tokenRes as any) ?? (tokenRes as any)?.data ?? tokenRes;
+      const token = typeof tokenRes === 'string' ? tokenRes : ((tokenRes as any)?.data ?? '');
       const body = JSON.parse(values.body);
       const response = await fetch('/v1/chat/completions', {
         method: 'POST',
@@ -183,7 +183,7 @@ const UserList: React.FC = () => {
               testAiForm.resetFields();
               try {
                 const res = await getUserModels(record.userId);
-                const models = (res as any) ?? (res as any)?.data ?? [];
+                const models = Array.isArray(res) ? res : ((res as any)?.data ?? []);
                 const model = Array.isArray(models) && models.length > 0 ? models[0] : 'gpt-4o-mini';
                 testAiForm.setFieldsValue({
                   body: JSON.stringify({
