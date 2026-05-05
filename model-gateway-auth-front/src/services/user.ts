@@ -38,3 +38,12 @@ export async function getUserTokenRecords(userId: number, params: API.UserTokenR
     params,
   });
 }
+
+/**
+ * 管理员为已有用户补绑 new-api。
+ */
+export async function bindNewApi(userId: number) {
+  return request<void>(`/model-gateway-auth/api/admin/users/${userId}/bind-new-api`, {
+    method: 'POST',
+  });
+}

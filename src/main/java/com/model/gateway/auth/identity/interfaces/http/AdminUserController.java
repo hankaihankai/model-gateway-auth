@@ -61,6 +61,18 @@ public class AdminUserController {
     }
 
     /**
+     * 管理员为已有用户补绑 new-api。
+     *
+     * @param userId 用户ID
+     * @return 绑定结果
+     */
+    @PostMapping("/{userId}/bind-new-api")
+    public ApiResponse<Boolean> bindNewApi(@PathVariable Long userId) {
+        userProfileService.adminBindNewApi(userId);
+        return ApiResponse.success(Boolean.TRUE);
+    }
+
+    /**
      * 管理员查询用户列表。
      *
      * @param pageNo 页码

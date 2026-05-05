@@ -297,6 +297,46 @@ public class UserProfileApplicationService {
     }
 
     /**
+     * 管理员为已有用户补绑 new-api。
+     *
+     * @param userId 用户ID
+     */
+    public void adminBindNewApi(Long userId) {
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        UserNewApiBinding binding = bindingMapper.selectByUserId(userId);
+        if (binding != null && binding.getNewApiUserId() != null) {
+            throw new AuthException("用户已绑定 new-api");
+        }
+        Long bindingId;
+        if (binding == null) {
+            UserNewApiBinding newBinding = UserNewApiBinding.builder()
+                    .userId(userId)
+                    .status(UserStatusEnum.PENDING.getCode())
+                    .build();
+            bindingMapper.insert(newBinding);
+            bindingId = newBinding.getId();
+            insertBindingLog(userId, bindingId, "CREATE_BINDING", true, "创建待绑定用户");
+        } else {
+            bindingId = binding.getId();
+        }
+        RegisterContext context = RegisterContext.builder()
+                .userId(userId)
+                .username(user.getUsername())
+                .bindingId(bindingId)
+                .build();
+        String randomPassword = java.util.UUID.randomUUID().toString().substring(0, 8);
+        UserCreateRequest request = UserCreateRequest.builder()
+                .username(user.getUsername())
+                .password(randomPassword)
+                .nickname(user.getNickname())
+                .build();
+        bindNewApiUser(context, request);
+    }
+
+    /**
      * 管理员查询用户列表。
      *
      * @param username 用户名(模糊)
