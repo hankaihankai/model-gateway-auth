@@ -20,9 +20,14 @@ const Login: React.FC = () => {
         return;
       }
       const { accessToken, userInfo, permissionContext } = res.data;
+      const currentUser = {
+        ...userInfo,
+        roles: permissionContext?.roles ?? userInfo.roles,
+        permissions: permissionContext?.permissions ?? userInfo.permissions,
+      };
       localStorage.setItem(TOKEN_KEY, accessToken);
-      localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
-      await setInitialState((s) => ({ ...(s ?? {}), currentUser: userInfo, permissionContext }));
+      localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+      await setInitialState((s) => ({ ...(s ?? {}), currentUser, permissionContext }));
       message.success('登录成功');
       const params = new URLSearchParams(history.location.search);
       const redirect = params.get('redirect') || permissionContext?.menus?.[0]?.path || '/user-manage/list';

@@ -1,8 +1,8 @@
 /**
  * 前端权限策略。仅决定菜单/路由是否可见，不负责跳转登录。
  */
-export default function access(initialState: { currentUser?: API.UserInfo } | undefined) {
-  const permissions = initialState?.currentUser?.permissions ?? [];
+export default function access(initialState: { currentUser?: API.UserInfo; permissionContext?: API.PermissionContext } | undefined) {
+  const permissions = initialState?.permissionContext?.permissions ?? initialState?.currentUser?.permissions ?? [];
   const hasPermission = (code: string) => permissions.includes(code);
   return {
     canSeeAdmin: !!initialState?.currentUser,
