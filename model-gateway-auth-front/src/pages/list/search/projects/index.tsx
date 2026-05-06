@@ -1,16 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, Col, Form, List, Row, Select, Typography } from 'antd';
+import type { DefaultOptionType } from 'antd/es/select';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import type { FC } from 'react';
 import { useState } from 'react';
 import { AvatarList, StandardFormRow, TagSelect } from '@/components';
-import { categoryOptions } from '../../mock';
 import type { ListItemDataType } from './data.d';
 import { queryFakeList } from './service';
 import useStyles from './style.style';
 
 const FormItem = Form.Item;
 const { Paragraph } = Typography;
+const categoryOptions: DefaultOptionType[] = [];
+dayjs.extend(relativeTime);
 const getKey = (id: string, index: number) => `${id}-${index}`;
 const Projects: FC = () => {
   const { styles } = useStyles();
@@ -97,7 +100,6 @@ const Projects: FC = () => {
           layout="inline"
           onValuesChange={(_, values) => {
             // 表单项变化时请求数据
-            // 模拟查询表单生效
             run(values);
           }}
         >

@@ -1,7 +1,7 @@
 import { request } from '@umijs/max';
 
 /**
- * 查询用户列表（开发期走 mock，部署期走真实后端）。
+ * 查询用户列表。
  */
 export async function listUsers(query: API.UserListQuery) {
   return request<API.UserListPageData>('/model-gateway-auth/api/admin/users', {

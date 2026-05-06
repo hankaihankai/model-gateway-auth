@@ -10,7 +10,6 @@ import type { DefaultOptionType } from 'antd/es/select';
 import type { FC } from 'react';
 import React, { useMemo, useRef } from 'react';
 import { ArticleListContent, StandardFormRow, TagSelect } from '@/components';
-import { categoryOptions } from '../../mock';
 import type { ListItemDataType } from './data.d';
 import { queryFakeList } from './service';
 import useStyles from './style.style';
@@ -18,6 +17,7 @@ import useStyles from './style.style';
 const FormItem = Form.Item;
 
 const pageSize = 5;
+const categoryOptions: DefaultOptionType[] = [];
 
 const IconText: React.FC<{
   type: string;

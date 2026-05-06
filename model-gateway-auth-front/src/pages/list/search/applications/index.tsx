@@ -16,14 +16,17 @@ import {
   Select,
   Tooltip,
 } from 'antd';
+import type { DefaultOptionType } from 'antd/es/select';
 import type { FC } from 'react';
 import React from 'react';
 import { StandardFormRow, TagSelect } from '@/components';
 import { formatNumber } from '@/utils/format';
-import { categoryOptions } from '../../mock';
 import type { ListItemDataType } from './data.d';
 import { queryFakeList } from './service';
 import useStyles from './style.style';
+
+const categoryOptions: DefaultOptionType[] = [];
+
 export function formatWan(val: number) {
   const v = val * 1;
   if (!v || Number.isNaN(v)) return '';

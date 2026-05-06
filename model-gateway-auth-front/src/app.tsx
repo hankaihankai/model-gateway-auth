@@ -14,7 +14,7 @@ import {
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 import type { RequestConfig, RunTimeLayoutConfig } from '@umijs/max';
 import { history } from '@umijs/max';
-import { App, Avatar, Dropdown, message } from 'antd';
+import { App, Dropdown, message } from 'antd';
 import React from 'react';
 import defaultSettings from '../config/defaultSettings';
 import { current as currentApi, logout as logoutApi } from '@/services/auth';
@@ -45,6 +45,13 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 function getIcon(iconName?: string): React.ReactNode {
   if (!iconName) return undefined;
   return ICON_MAP[iconName] || undefined;
+}
+
+/**
+ * 判断本地是否已经有登录凭据。
+ */
+function hasLoginCredential(): boolean {
+  return !!localStorage.getItem(TOKEN_KEY);
 }
 
 /**
@@ -143,7 +150,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     },
     onPageChange: () => {
       const { location } = history;
-      const loggedIn = !!initialState?.currentUser;
+      const loggedIn = !!initialState?.currentUser || hasLoginCredential();
       if (!loggedIn && location.pathname !== LOGIN_PATH) {
         history.replace(`${LOGIN_PATH}?redirect=${encodeURIComponent(location.pathname)}`);
       }
