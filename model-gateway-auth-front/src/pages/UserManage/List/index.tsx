@@ -1,14 +1,25 @@
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
-import { App, Button, Tag, Modal, Form, Input, Switch } from 'antd';
+import { Access, useAccess } from '@umijs/max';
+import { App, Button, Tag, Modal, Form, Input, Switch, Select, Space } from 'antd';
 import React, { useRef, useState } from 'react';
 import { Link } from '@umijs/max';
-import { listUsers, createUser, bindNewApi, updateUserStatus, getUserModels } from '@/services/user';
+import {
+  listUsers,
+  createUser,
+  bindNewApi,
+  updateUserStatus,
+  getUserModels,
+  getUserRoles,
+  updateUserRoles,
+} from '@/services/user';
+import { listRoles } from '@/services/rbac';
 
 // ProColumns 类型中无 hideInSearch，使用 search: false 替代以避免类型错误
 const col = (c: ProColumns<API.UserListItem> & { hideInSearch?: boolean }): ProColumns<API.UserListItem> => c;
 
 const ROLE_VALUE_ENUM = {
+  SUPER_ADMIN: { text: 'SUPER_ADMIN', color: 'purple' },
   ADMIN: { text: 'ADMIN', color: 'red' },
   USER: { text: 'USER', color: 'blue' },
 };
@@ -21,10 +32,15 @@ const STATUS_VALUE_ENUM = {
 };
 
 const UserList: React.FC = () => {
+  const access = useAccess();
   const { message } = App.useApp();
   const actionRef = useRef<any>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createForm] = Form.useForm();
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [roleUser, setRoleUser] = useState<API.UserListItem | null>(null);
+  const [roleOptions, setRoleOptions] = useState<{ label: string; value: number }[]>([]);
+  const [roleForm] = Form.useForm();
   const [testAiModalOpen, setTestAiModalOpen] = useState(false);
   const [testAiUserId, setTestAiUserId] = useState<number | null>(null);
   const [testAiForm] = Form.useForm();
@@ -39,6 +55,26 @@ const UserList: React.FC = () => {
     message.success('创建成功');
     setCreateModalOpen(false);
     createForm.resetFields();
+    actionRef.current?.reload();
+  };
+
+  const openRoleModal = async (record: API.UserListItem) => {
+    const [rolesRes, userRolesRes] = await Promise.all([listRoles(), getUserRoles(record.userId)]);
+    const roles = (rolesRes as any)?.data ?? [];
+    setRoleOptions(roles.map((item: API.SysRole) => ({
+      label: `${item.roleName} (${item.roleCode})`,
+      value: item.roleId,
+    })));
+    roleForm.setFieldsValue({ roleIds: (userRolesRes as any)?.data ?? [] });
+    setRoleUser(record);
+    setRoleModalOpen(true);
+  };
+
+  const handleRoleSave = async (values: { roleIds?: number[] }) => {
+    if (!roleUser) return;
+    await updateUserRoles(roleUser.userId, values.roleIds ?? []);
+    message.success('角色已更新');
+    setRoleModalOpen(false);
     actionRef.current?.reload();
   };
 
@@ -104,12 +140,14 @@ const UserList: React.FC = () => {
     }),
     {
       title: '角色',
-      dataIndex: 'role',
+      dataIndex: 'roles',
       width: 100,
       valueEnum: ROLE_VALUE_ENUM,
       render: (_, record) => {
-        const cfg = ROLE_VALUE_ENUM[record.role as keyof typeof ROLE_VALUE_ENUM];
-        return <Tag color={cfg?.color}>{cfg?.text || record.role}</Tag>;
+        return (record.roles ?? []).map((role) => {
+          const cfg = ROLE_VALUE_ENUM[role as keyof typeof ROLE_VALUE_ENUM];
+          return <Tag key={role} color={cfg?.color}>{cfg?.text || role}</Tag>;
+        });
       },
     },
     col({
@@ -135,6 +173,7 @@ const UserList: React.FC = () => {
               checked={record.status === 0}
               checkedChildren="启用"
               unCheckedChildren="禁用"
+              disabled={!access.canWriteUser}
               onChange={async (checked) => {
                 try {
                   await updateUserStatus(record.userId, checked ? 0 : 1);
@@ -154,59 +193,62 @@ const UserList: React.FC = () => {
     {
       title: '操作',
       valueType: 'option',
-      width: 160,
-      render: (_, record) => [
-        <Link key="view" to={`/user-manage/detail/${record.userId}`}>
-          查看
-        </Link>,
-        !record.newApiBound && (
-          <a
-            key="bind"
-            onClick={async () => {
-              try {
-                await bindNewApi(record.userId);
-                message.success('绑定成功');
-                actionRef.current?.reload();
-              } catch (error: any) {
-                message.error(error?.message || '绑定失败');
-              }
-            }}
-          >
-            绑定
-          </a>
-        ),
-        record.newApiBound && (
-          <a
-            key="testAi"
-            onClick={async () => {
-              setTestAiUserId(record.userId);
-              setTestAiModalOpen(true);
-              setTestAiResult('');
-              testAiForm.resetFields();
-              try {
-                const res = await getUserModels(record.userId);
-                const models = Array.isArray(res) ? res : ((res as any)?.data ?? []);
-                const model = Array.isArray(models) && models.length > 0 ? models[0] : 'gpt-4o-mini';
-                testAiForm.setFieldsValue({
-                  body: JSON.stringify({
-                    model,
-                    messages: [{ role: 'user', content: 'hello' }],
-                  }, null, 2),
-                });
-              } catch {
-                testAiForm.setFieldsValue({
-                  body: JSON.stringify({
-                    model: 'gpt-4o-mini',
-                    messages: [{ role: 'user', content: 'hello' }],
-                  }, null, 2),
-                });
-              }
-            }}
-          >
-            测试AI
-          </a>
-        ),
-      ],
+      width: 240,
+      render: (_, record) => (
+        <Space>
+          <Link to={`/user-manage/detail/${record.userId}`}>查看</Link>
+          <Access accessible={access.canWriteUserRole}>
+            <a onClick={() => openRoleModal(record)}>角色</a>
+          </Access>
+          <Access accessible={access.canWriteUser}>
+            {!record.newApiBound && (
+              <a
+                onClick={async () => {
+                  try {
+                    await bindNewApi(record.userId);
+                    message.success('绑定成功');
+                    actionRef.current?.reload();
+                  } catch (error: any) {
+                    message.error(error?.message || '绑定失败');
+                  }
+                }}
+              >
+                绑定
+              </a>
+            )}
+          </Access>
+          {record.newApiBound && (
+            <a
+              onClick={async () => {
+                setTestAiUserId(record.userId);
+                setTestAiModalOpen(true);
+                setTestAiResult('');
+                testAiForm.resetFields();
+                try {
+                  const res = await getUserModels(record.userId);
+                  const models = Array.isArray(res) ? res : ((res as any)?.data ?? []);
+                  const model = Array.isArray(models) && models.length > 0 ? models[0] : 'gpt-4o-mini';
+                  testAiForm.setFieldsValue({
+                    body: JSON.stringify({
+                      model,
+                      messages: [{ role: 'user', content: 'hello' }],
+                    }, null, 2),
+                  });
+                } catch {
+                  testAiForm.setFieldsValue({
+                    body: JSON.stringify({
+                      model: 'gpt-4o-mini',
+                      messages: [{ role: 'user', content: 'hello' }],
+                    }, null, 2),
+                  });
+                }
+              }}
+            >
+              测试AI
+            </a>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -233,15 +275,24 @@ const UserList: React.FC = () => {
         pagination={{ defaultPageSize: 10, pageSizeOptions: ['10', '20', '50'] }}
         search={{ labelWidth: 'auto' }}
         toolBarRender={() => [
-          <Button
-            key="create"
-            type="primary"
-            onClick={() => setCreateModalOpen(true)}
-          >
-            添加用户
-          </Button>,
+          <Access key="create" accessible={access.canWriteUser}>
+            <Button type="primary" onClick={() => setCreateModalOpen(true)}>添加用户</Button>
+          </Access>,
         ]}
       />
+      <Modal
+        title={`分配角色${roleUser ? ` - ${roleUser.username}` : ''}`}
+        open={roleModalOpen}
+        onOk={() => roleForm.submit()}
+        onCancel={() => setRoleModalOpen(false)}
+        destroyOnClose
+      >
+        <Form form={roleForm} layout="vertical" onFinish={handleRoleSave}>
+          <Form.Item name="roleIds" label="角色">
+            <Select mode="multiple" options={roleOptions} optionFilterProp="label" />
+          </Form.Item>
+        </Form>
+      </Modal>
       <Modal
         title="添加用户"
         open={createModalOpen}

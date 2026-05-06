@@ -1,10 +1,11 @@
 package com.model.gateway.auth.identity.domain.model;
 
-import com.model.gateway.auth.identity.domain.model.SysUser;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 /**
  * 当前登录用户上下文载体，仅保留鉴权下游需要的字段，刻意不携带密码。
@@ -41,9 +42,9 @@ public class LoginUser {
     private String email;
 
     /**
-     * 用户角色。
+     * 用户角色编码列表。
      */
-    private String role;
+    private List<String> roles;
 
     /**
      * 用户状态。
@@ -66,7 +67,6 @@ public class LoginUser {
                 .nickname(user.getNickname())
                 .phone(user.getPhone())
                 .email(user.getEmail())
-                .role(user.getRole())
                 .status(user.getStatus())
                 .build();
     }

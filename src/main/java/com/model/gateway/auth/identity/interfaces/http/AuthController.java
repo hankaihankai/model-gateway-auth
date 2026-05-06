@@ -5,6 +5,7 @@ import com.model.gateway.auth.identity.interfaces.dto.LoginRequest;
 import com.model.gateway.auth.identity.application.AuthApplicationService;
 import com.model.gateway.auth.identity.interfaces.vo.LoginResponse;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,6 +50,16 @@ public class AuthController {
     @PostMapping("/refresh")
     public ApiResponse<LoginResponse> refresh() {
         return ApiResponse.success(authService.refresh());
+    }
+
+    /**
+     * 查询当前登录上下文接口。
+     *
+     * @return 当前登录上下文
+     */
+    @GetMapping("/current")
+    public ApiResponse<LoginResponse> current() {
+        return ApiResponse.success(authService.current());
     }
 
     /**

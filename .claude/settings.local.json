@@ -89,7 +89,9 @@
       "Bash(where node *)",
       "Bash(\"/d/Program Files/nodejs/tsc\" --noEmit)",
       "Bash(\"/d/Program Files/nodejs/node\" ./node_modules/.bin/tsc --noEmit)",
-      "Bash(\"/d/Program Files/nodejs/node\" ./node_modules/typescript/bin/tsc --noEmit)"
+      "Bash(\"/d/Program Files/nodejs/node\" ./node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(cmd *)",
+      "Bash(D:/Program Files/nodejs/node *)"
     ]
   }
 }

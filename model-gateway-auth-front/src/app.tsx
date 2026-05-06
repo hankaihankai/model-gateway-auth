@@ -1,21 +1,76 @@
-import { LogoutOutlined } from '@ant-design/icons';
+import {
+  LogoutOutlined,
+  UserOutlined,
+  SafetyCertificateOutlined,
+  TeamOutlined,
+  KeyOutlined,
+  MenuOutlined,
+  ApiOutlined,
+  SettingOutlined,
+  DashboardOutlined,
+  FileTextOutlined,
+  BarChartOutlined,
+} from '@ant-design/icons';
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 import type { RequestConfig, RunTimeLayoutConfig } from '@umijs/max';
 import { history } from '@umijs/max';
 import { App, Avatar, Dropdown, message } from 'antd';
 import React from 'react';
 import defaultSettings from '../config/defaultSettings';
-import { logout as logoutApi } from '@/services/auth';
+import { current as currentApi, logout as logoutApi } from '@/services/auth';
 
 const TOKEN_KEY = 'access_token';
 const USER_KEY = 'user_info';
 const LOGIN_PATH = '/user/login';
+const MENU_COMPONENT_WHITELIST = new Set([
+  'UserManageList',
+  'RoleManageList',
+  'MenuManageList',
+  'ApiPermissionManageList',
+]);
+
+const ICON_MAP: Record<string, React.ReactNode> = {
+  UserOutlined: <UserOutlined />,
+  SafetyCertificateOutlined: <SafetyCertificateOutlined />,
+  TeamOutlined: <TeamOutlined />,
+  KeyOutlined: <KeyOutlined />,
+  MenuOutlined: <MenuOutlined />,
+  ApiOutlined: <ApiOutlined />,
+  SettingOutlined: <SettingOutlined />,
+  DashboardOutlined: <DashboardOutlined />,
+  FileTextOutlined: <FileTextOutlined />,
+  BarChartOutlined: <BarChartOutlined />,
+};
+
+function getIcon(iconName?: string): React.ReactNode {
+  if (!iconName) return undefined;
+  return ICON_MAP[iconName] || undefined;
+}
+
+/**
+ * 将后端菜单树转换为 ProLayout 菜单。
+ */
+function buildLayoutMenus(menus: API.MenuTreeItem[] = []): any[] {
+  return menus
+    .filter((item) => {
+      if (!item.visible || item.status !== 0 || item.menuType === 'BUTTON') return false;
+      if (item.menuType === 'MENU' && item.componentKey && !MENU_COMPONENT_WHITELIST.has(item.componentKey)) return false;
+      return true;
+    })
+    .map((item) => ({
+      path: item.path,
+      name: item.menuName,
+      icon: getIcon(item.icon),
+      routes: buildLayoutMenus(item.children ?? []),
+    }));
+}
 
 /**
  * 启动时拉初始登录态：从 localStorage 恢复 currentUser。
  */
 export async function getInitialState(): Promise<{
   currentUser?: API.UserInfo;
+  permissionContext?: API.PermissionContext;
   settings?: Partial<LayoutSettings>;
 }> {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -23,12 +78,24 @@ export async function getInitialState(): Promise<{
     return { settings: defaultSettings as Partial<LayoutSettings> };
   }
   try {
-    const userInfo = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+    const res = await currentApi();
+    if (res.code === 200 && res.data) {
+      const { userInfo, permissionContext } = res.data;
+      localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
+      return {
+        currentUser: userInfo,
+        permissionContext,
+        settings: defaultSettings as Partial<LayoutSettings>,
+      };
+    }
+    const userInfo = JSON.parse(localStorage.getItem(USER_KEY) || 'null') as API.UserInfo | null;
     return {
       currentUser: userInfo ?? undefined,
       settings: defaultSettings as Partial<LayoutSettings>,
     };
   } catch {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     return { settings: defaultSettings as Partial<LayoutSettings> };
   }
 }
@@ -52,7 +119,6 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
   return {
     ...(initialState?.settings ?? {}),
     title: 'Model Gateway Auth',
-    locale: false,
     avatarProps: {
       title: initialState?.currentUser?.nickname || initialState?.currentUser?.username || '未登录',
       render: (_props, dom) => {
@@ -72,6 +138,9 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     },
     menuHeaderRender: undefined,
     footerRender: () => null,
+    menu: {
+      request: async () => buildLayoutMenus(initialState?.permissionContext?.menus ?? []),
+    },
     onPageChange: () => {
       const { location } = history;
       const loggedIn = !!initialState?.currentUser;

@@ -45,12 +45,6 @@ public class SysUser {
     private String email;
 
     /**
-     * 用户角色。
-     * @see com.model.gateway.auth.shared.enums.UserRoleEnum
-     */
-    private String role;
-
-    /**
      * 用户状态。
      */
     private Integer status;

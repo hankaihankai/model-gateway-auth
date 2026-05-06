@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 管理员用户详情响应。
@@ -42,9 +43,9 @@ public class AdminUserDetailVo {
     private String email;
 
     /**
-     * 用户角色。
+     * 用户角色编码列表。
      */
-    private String role;
+    private List<String> roles;
 
     /**
      * 用户状态。

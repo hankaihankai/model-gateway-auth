@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * 管理员用户列表项。
  */
@@ -40,9 +42,9 @@ public class AdminUserListItemVo {
     private String email;
 
     /**
-     * 用户角色。
+     * 用户角色编码列表。
      */
-    private String role;
+    private List<String> roles;
 
     /**
      * 用户状态。

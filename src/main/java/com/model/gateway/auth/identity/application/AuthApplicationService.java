@@ -8,6 +8,8 @@ import com.model.gateway.auth.config.SaTokenConfig;
 import com.model.gateway.auth.identity.domain.model.LoginUser;
 import com.model.gateway.auth.identity.domain.model.SysUser;
 import com.model.gateway.auth.identity.interfaces.dto.LoginRequest;
+import com.model.gateway.auth.rbac.application.RbacApplicationService;
+import com.model.gateway.auth.rbac.interfaces.vo.PermissionContextVo;
 import com.model.gateway.auth.shared.exception.AuthException;
 import com.model.gateway.auth.identity.infrastructure.cache.GatewayCredentialCacheService;
 import com.model.gateway.auth.newapi.application.NewApiBindingApplicationService;
@@ -45,6 +47,11 @@ public class AuthApplicationService {
     private final GatewayCredentialCacheService gatewayCredentialCacheService;
 
     /**
+     * RBAC应用服务。
+     */
+    private final RbacApplicationService rbacApplicationService;
+
+    /**
      * 创建认证业务服务实现。
      *
      * @param userMapper 用户数据访问对象
@@ -56,11 +63,13 @@ public class AuthApplicationService {
             UserMapper userMapper,
             BCryptPasswordEncoder passwordEncoder,
             NewApiBindingApplicationService newApiBindingService,
-            GatewayCredentialCacheService gatewayCredentialCacheService) {
+            GatewayCredentialCacheService gatewayCredentialCacheService,
+            RbacApplicationService rbacApplicationService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.newApiBindingService = newApiBindingService;
         this.gatewayCredentialCacheService = gatewayCredentialCacheService;
+        this.rbacApplicationService = rbacApplicationService;
     }
 
     /**
@@ -81,6 +90,7 @@ public class AuthApplicationService {
 
         StpUtil.login(user.getUserId());
         LoginUser loginUser = LoginUser.from(user);
+        loginUser.setRoles(rbacApplicationService.getRoleCodes(user.getUserId()));
         StpUtil.getSession().set(SaTokenConfig.SESSION_LOGIN_USER_KEY, loginUser);
         newApiBindingService.ensureCredential(loginUser);
         return buildLoginResponse(loginUser);
@@ -94,6 +104,22 @@ public class AuthApplicationService {
     public LoginResponse refresh() {
         LoginUser loginUser = (LoginUser) StpUtil.getSession().get(SaTokenConfig.SESSION_LOGIN_USER_KEY);
         newApiBindingService.ensureCredential(loginUser);
+        return buildLoginResponse(loginUser);
+    }
+
+    /**
+     * 查询当前登录上下文。
+     *
+     * @return 登录响应
+     */
+    public LoginResponse current() {
+        LoginUser loginUser = (LoginUser) StpUtil.getSession().get(SaTokenConfig.SESSION_LOGIN_USER_KEY);
+        if (loginUser == null) {
+            SysUser user = userMapper.selectByUserId(StpUtil.getLoginIdAsLong());
+            loginUser = LoginUser.from(user);
+            loginUser.setRoles(rbacApplicationService.getRoleCodes(user.getUserId()));
+            StpUtil.getSession().set(SaTokenConfig.SESSION_LOGIN_USER_KEY, loginUser);
+        }
         return buildLoginResponse(loginUser);
     }
 
@@ -138,6 +164,8 @@ public class AuthApplicationService {
      * @return 登录响应
      */
     private LoginResponse buildLoginResponse(LoginUser user) {
+        PermissionContextVo permissionContext = rbacApplicationService.getPermissionContext(user.getUserId());
+        user.setRoles(permissionContext.getRoles());
         return LoginResponse.builder()
                 .accessToken(StpUtil.getTokenValue())
                 .tokenType(AuthConstants.TOKEN_TYPE_BEARER)
@@ -146,8 +174,10 @@ public class AuthApplicationService {
                         .userId(user.getUserId())
                         .username(user.getUsername())
                         .nickname(user.getNickname())
-                        .role(user.getRole())
+                        .roles(permissionContext.getRoles())
+                        .permissions(permissionContext.getPermissions())
                         .build())
+                .permissionContext(permissionContext)
                 .build();
     }
 }

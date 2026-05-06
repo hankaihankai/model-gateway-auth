@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.model.gateway.auth.rbac.interfaces.vo.PermissionContextVo;
 
 /**
  * 登录响应数据。
@@ -33,4 +34,9 @@ public class LoginResponse {
      * 登录用户信息。
      */
     private UserInfoVo userInfo;
+
+    /**
+     * 权限上下文。
+     */
+    private PermissionContextVo permissionContext;
 }

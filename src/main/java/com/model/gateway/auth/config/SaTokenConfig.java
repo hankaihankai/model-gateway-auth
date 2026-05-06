@@ -12,7 +12,7 @@ import com.model.gateway.auth.identity.domain.model.LoginUser;
 import com.model.gateway.auth.identity.domain.model.SysUser;
 import com.model.gateway.auth.shared.exception.AuthStatusException;
 import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
-import com.model.gateway.auth.shared.enums.UserRoleEnum;
+import com.model.gateway.auth.rbac.application.RbacApplicationService;
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,14 +42,24 @@ public class SaTokenConfig implements WebMvcConfigurer {
     private final UserMapper userMapper;
 
     /**
+     * RBAC应用服务。
+     */
+    private final RbacApplicationService rbacApplicationService;
+
+    /**
      * 创建Sa-Token配置。
      *
      * @param rsaSaJwtTemplate 自定义RS256 JWT模板
      * @param userMapper 用户数据访问对象
+     * @param rbacApplicationService RBAC应用服务
      */
-    public SaTokenConfig(RsaSaJwtTemplate rsaSaJwtTemplate, UserMapper userMapper) {
+    public SaTokenConfig(
+            RsaSaJwtTemplate rsaSaJwtTemplate,
+            UserMapper userMapper,
+            RbacApplicationService rbacApplicationService) {
         this.rsaSaJwtTemplate = rsaSaJwtTemplate;
         this.userMapper = userMapper;
+        this.rbacApplicationService = rbacApplicationService;
     }
 
     /**
@@ -80,10 +90,6 @@ public class SaTokenConfig implements WebMvcConfigurer {
         registry.addInterceptor(new SaInterceptor(handle -> {
             StpUtil.checkLogin();
             ensureLoginUserInSession();
-            String uri = SaHolder.getRequest().getRequestPath();
-            if (uri.startsWith("/api/admin/")) {
-                StpUtil.checkRole(UserRoleEnum.ADMIN.getCode());
-            }
         }))
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
@@ -110,6 +116,8 @@ public class SaTokenConfig implements WebMvcConfigurer {
         if (!UserStatusEnum.ENABLE.getCode().equals(user.getStatus())) {
             throw new AuthStatusException(HttpStatus.FORBIDDEN, 403, "用户已禁用");
         }
-        session.set(SESSION_LOGIN_USER_KEY, LoginUser.from(user));
+        LoginUser loginUser = LoginUser.from(user);
+        loginUser.setRoles(rbacApplicationService.getRoleCodes(userId));
+        session.set(SESSION_LOGIN_USER_KEY, loginUser);
     }
 }

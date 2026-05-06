@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * 登录用户信息。
  */
@@ -30,7 +32,12 @@ public class UserInfoVo {
     private String nickname;
 
     /**
-     * 用户角色。
+     * 用户角色编码列表。
      */
-    private String role;
+    private List<String> roles;
+
+    /**
+     * 权限编码列表。
+     */
+    private List<String> permissions;
 }

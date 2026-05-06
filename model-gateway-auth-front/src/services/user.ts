@@ -76,3 +76,22 @@ export async function getUserModels(userId: number) {
     method: 'GET',
   });
 }
+
+/**
+ * 查询用户角色ID列表。
+ */
+export async function getUserRoles(userId: number) {
+  return request<API.ApiResponse<number[]>>(`/model-gateway-auth/api/admin/users/${userId}/roles`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * 更新用户角色。
+ */
+export async function updateUserRoles(userId: number, roleIds: number[]) {
+  return request<API.ApiResponse<boolean>>(`/model-gateway-auth/api/admin/users/${userId}/roles`, {
+    method: 'PUT',
+    data: { roleIds },
+  });
+}

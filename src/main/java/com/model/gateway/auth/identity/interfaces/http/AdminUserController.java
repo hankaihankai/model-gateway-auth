@@ -1,18 +1,22 @@
 package com.model.gateway.auth.identity.interfaces.http;
 
 import com.model.gateway.auth.shared.api.ApiResponse;
-import com.model.gateway.auth.shared.exception.AuthException;
 import com.model.gateway.auth.identity.interfaces.dto.AdminUserCreateRequest;
 import com.model.gateway.auth.identity.interfaces.dto.UserAmountUpdateRequest;
 import com.model.gateway.auth.identity.interfaces.vo.AdminUserDetailVo;
 import com.model.gateway.auth.identity.interfaces.vo.AdminUserListPageVo;
 import com.model.gateway.auth.identity.interfaces.vo.UserCreateResponse;
 import com.model.gateway.auth.identity.interfaces.vo.UserTokenRecordsVo;
-import cn.dev33.satoken.annotation.SaCheckRole;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.model.gateway.auth.identity.application.UserProfileApplicationService;
+import com.model.gateway.auth.rbac.application.RbacApplicationService;
+import com.model.gateway.auth.rbac.interfaces.dto.UserRoleUpdateRequest;
+import com.model.gateway.auth.rbac.shared.RbacPermissionConstants;
+import com.model.gateway.auth.shared.exception.AuthException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,7 +31,6 @@ import java.util.List;
 /**
  * 管理员用户接口控制器。
  */
-@SaCheckRole("ADMIN")
 @RestController
 @RequestMapping("/api/admin/users")
 public class AdminUserController {
@@ -38,12 +41,21 @@ public class AdminUserController {
     private final UserProfileApplicationService userProfileService;
 
     /**
+     * RBAC应用服务。
+     */
+    private final RbacApplicationService rbacApplicationService;
+
+    /**
      * 创建管理员用户接口控制器。
      *
      * @param userProfileService 用户资料业务服务
+     * @param rbacApplicationService RBAC应用服务
      */
-    public AdminUserController(UserProfileApplicationService userProfileService) {
+    public AdminUserController(
+            UserProfileApplicationService userProfileService,
+            RbacApplicationService rbacApplicationService) {
         this.userProfileService = userProfileService;
+        this.rbacApplicationService = rbacApplicationService;
     }
 
     /**
@@ -54,6 +66,7 @@ public class AdminUserController {
      * @return 设置结果
      */
     @PostMapping("/{userId}/amount")
+    @SaCheckPermission(RbacPermissionConstants.USER_AMOUNT)
     public ApiResponse<Boolean> updateUserAmount(
             @PathVariable Long userId,
             @RequestBody UserAmountUpdateRequest request) {
@@ -68,6 +81,7 @@ public class AdminUserController {
      * @return 绑定结果
      */
     @PostMapping("/{userId}/bind-new-api")
+    @SaCheckPermission(RbacPermissionConstants.USER_WRITE)
     public ApiResponse<Boolean> bindNewApi(@PathVariable Long userId) {
         userProfileService.adminBindNewApi(userId);
         return ApiResponse.success(Boolean.TRUE);
@@ -81,6 +95,7 @@ public class AdminUserController {
      * @return 修改结果
      */
     @PostMapping("/{userId}/status")
+    @SaCheckPermission(RbacPermissionConstants.USER_WRITE)
     public ApiResponse<Boolean> updateUserStatus(
             @PathVariable Long userId,
             @RequestParam Integer status) {
@@ -95,6 +110,7 @@ public class AdminUserController {
      * @return 可用模型列表
      */
     @GetMapping("/{userId}/models")
+    @SaCheckPermission(RbacPermissionConstants.USER_VIEW)
     public ApiResponse<List<String>> getUserModels(@PathVariable Long userId) {
         return ApiResponse.success(userProfileService.adminGetModels(userId));
     }
@@ -110,6 +126,7 @@ public class AdminUserController {
      * @return 用户列表分页
      */
     @GetMapping
+    @SaCheckPermission(RbacPermissionConstants.USER_VIEW)
     public ApiResponse<AdminUserListPageVo> listUsers(
             @RequestParam(value = "pageNo", required = false, defaultValue = "1") int pageNo,
             @RequestParam(value = "pageSize", required = false, defaultValue = "10") int pageSize,
@@ -126,6 +143,7 @@ public class AdminUserController {
      * @return 创建用户响应
      */
     @PostMapping
+    @SaCheckPermission(RbacPermissionConstants.USER_WRITE)
     public ApiResponse<UserCreateResponse> createUser(@RequestBody AdminUserCreateRequest request) {
         return ApiResponse.success(userProfileService.adminCreateUser(request));
     }
@@ -137,6 +155,7 @@ public class AdminUserController {
      * @return 用户详情
      */
     @GetMapping("/{userId}")
+    @SaCheckPermission(RbacPermissionConstants.USER_VIEW)
     public ApiResponse<AdminUserDetailVo> getUserDetail(@PathVariable Long userId) {
         return ApiResponse.success(userProfileService.adminGetUserDetail(userId));
     }
@@ -153,6 +172,7 @@ public class AdminUserController {
      * @return Token使用记录分页
      */
     @GetMapping("/{userId}/token-records")
+    @SaCheckPermission(RbacPermissionConstants.USER_VIEW)
     public ApiResponse<UserTokenRecordsVo> getTokenRecords(
             @PathVariable Long userId,
             @RequestParam(value = "pageNo", required = false) Integer pageNo,
@@ -170,6 +190,34 @@ public class AdminUserController {
         }
         return ApiResponse.success(userProfileService.adminGetTokenRecords(
                 userId, pageNo, pageSize, startTimestamp, endTimestamp, modelName));
+    }
+
+    /**
+     * 查询用户角色ID列表。
+     *
+     * @param userId 用户ID
+     * @return 角色ID列表
+     */
+    @GetMapping("/{userId}/roles")
+    @SaCheckPermission(RbacPermissionConstants.USER_ROLE)
+    public ApiResponse<List<Long>> getUserRoles(@PathVariable Long userId) {
+        return ApiResponse.success(rbacApplicationService.getUserRoleIds(userId));
+    }
+
+    /**
+     * 更新用户角色。
+     *
+     * @param userId 用户ID
+     * @param request 用户角色更新请求
+     * @return 更新结果
+     */
+    @PutMapping("/{userId}/roles")
+    @SaCheckPermission(RbacPermissionConstants.USER_ROLE)
+    public ApiResponse<Boolean> updateUserRoles(
+            @PathVariable Long userId,
+            @RequestBody UserRoleUpdateRequest request) {
+        rbacApplicationService.updateUserRoles(userId, request);
+        return ApiResponse.success(Boolean.TRUE);
     }
 
     /**

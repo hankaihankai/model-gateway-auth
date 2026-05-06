@@ -1,12 +1,9 @@
 package com.model.gateway.auth.config;
 
 import cn.dev33.satoken.stp.StpInterface;
-import com.model.gateway.auth.identity.domain.model.SysUser;
-import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
+import com.model.gateway.auth.rbac.application.RbacApplicationService;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -16,17 +13,17 @@ import java.util.List;
 public class SaTokenRoleConfig implements StpInterface {
 
     /**
-     * 用户数据访问对象。
+     * RBAC应用服务。
      */
-    private final UserMapper userMapper;
+    private final RbacApplicationService rbacApplicationService;
 
     /**
      * 创建Sa-Token角色加载配置。
      *
-     * @param userMapper 用户数据访问对象
+     * @param rbacApplicationService RBAC应用服务
      */
-    public SaTokenRoleConfig(UserMapper userMapper) {
-        this.userMapper = userMapper;
+    public SaTokenRoleConfig(RbacApplicationService rbacApplicationService) {
+        this.rbacApplicationService = rbacApplicationService;
     }
 
     /**
@@ -38,11 +35,7 @@ public class SaTokenRoleConfig implements StpInterface {
      */
     @Override
     public List<String> getRoleList(Object loginId, String loginType) {
-        SysUser user = userMapper.selectByUserId(Long.valueOf(String.valueOf(loginId)));
-        if (user == null || !StringUtils.hasText(user.getRole())) {
-            return Collections.emptyList();
-        }
-        return Collections.singletonList(user.getRole());
+        return rbacApplicationService.getRoleCodes(Long.valueOf(String.valueOf(loginId)));
     }
 
     /**
@@ -54,6 +47,6 @@ public class SaTokenRoleConfig implements StpInterface {
      */
     @Override
     public List<String> getPermissionList(Object loginId, String loginType) {
-        return Collections.emptyList();
+        return rbacApplicationService.getPermissionCodes(Long.valueOf(String.valueOf(loginId)));
     }
 }

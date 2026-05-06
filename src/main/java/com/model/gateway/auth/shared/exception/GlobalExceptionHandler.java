@@ -1,6 +1,7 @@
 package com.model.gateway.auth.shared.exception;
 
 import cn.dev33.satoken.exception.NotLoginException;
+import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
 import com.model.gateway.auth.shared.api.ApiResponse;
 import org.springframework.http.HttpStatus;
@@ -62,5 +63,17 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ApiResponse<Void> handleNotRoleException(NotRoleException exception) {
         return ApiResponse.fail(403, "无管理员权限");
+    }
+
+    /**
+     * 处理权限不足异常。
+     *
+     * @param exception 权限不足异常
+     * @return 无权限响应
+     */
+    @ExceptionHandler(NotPermissionException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleNotPermissionException(NotPermissionException exception) {
+        return ApiResponse.fail(403, "无操作权限");
     }
 }

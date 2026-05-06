@@ -30,7 +30,6 @@ public interface UserMapper {
                 nickname,
                 phone,
                 email,
-                role,
                 status
             FROM sys_user
             WHERE username = #{username}
@@ -52,7 +51,6 @@ public interface UserMapper {
                 nickname,
                 phone,
                 email,
-                role,
                 status
             FROM sys_user
             WHERE user_id = #{userId}
@@ -74,7 +72,6 @@ public interface UserMapper {
                 nickname,
                 phone,
                 email,
-                role,
                 status
             FROM sys_user
             WHERE phone = #{phone}
@@ -96,7 +93,6 @@ public interface UserMapper {
                 nickname,
                 phone,
                 email,
-                role,
                 status
             FROM sys_user
             WHERE email = #{email}
@@ -117,7 +113,6 @@ public interface UserMapper {
                 nickname,
                 phone,
                 email,
-                role,
                 status
             ) VALUES (
                 #{username},
@@ -125,7 +120,6 @@ public interface UserMapper {
                 #{nickname},
                 #{phone},
                 #{email},
-                #{role},
                 #{status}
             )
             """)
@@ -162,7 +156,13 @@ public interface UserMapper {
               AND username LIKE CONCAT('%', #{username}, '%')
             </if>
             <if test="role != null and role != ''">
-              AND role = #{role}
+              AND EXISTS (
+                SELECT 1
+                FROM sys_user_role ur
+                JOIN sys_role r ON r.role_id = ur.role_id
+                WHERE ur.user_id = sys_user.user_id
+                  AND r.role_code = #{role}
+              )
             </if>
             <if test="status != null">
               AND status = #{status}
@@ -192,7 +192,6 @@ public interface UserMapper {
               nickname,
               phone,
               email,
-              role,
               status
             FROM sys_user
             WHERE 1 = 1
@@ -200,7 +199,13 @@ public interface UserMapper {
               AND username LIKE CONCAT('%', #{username}, '%')
             </if>
             <if test="role != null and role != ''">
-              AND role = #{role}
+              AND EXISTS (
+                SELECT 1
+                FROM sys_user_role ur
+                JOIN sys_role r ON r.role_id = ur.role_id
+                WHERE ur.user_id = sys_user.user_id
+                  AND r.role_code = #{role}
+              )
             </if>
             <if test="status != null">
               AND status = #{status}

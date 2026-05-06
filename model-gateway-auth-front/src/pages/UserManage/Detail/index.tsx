@@ -1,13 +1,15 @@
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Card, Tabs, Descriptions, Tag, Skeleton, Button, Modal, Form, InputNumber, Radio } from 'antd';
-import { useParams, useRequest } from '@umijs/max';
+import { Access, useAccess, useParams, useRequest } from '@umijs/max';
 import React, { useState } from 'react';
 import { getUserDetail, getUserTokenRecords, updateUserAmount } from '@/services/user';
 
 const UserDetail: React.FC = () => {
+  const access = useAccess();
   const { userId } = useParams<{ userId: string }>();
   const id = Number(userId);
-  const { data: detail, loading: detailLoading } = useRequest(() => getUserDetail(id));
+  const { data: detailData, loading: detailLoading } = useRequest(() => getUserDetail(id));
+  const detail = (detailData as any)?.data ?? detailData as API.AdminUserDetailVo | undefined;
   const [amountModalOpen, setAmountModalOpen] = useState(false);
   const [amountForm] = Form.useForm();
 
@@ -59,7 +61,9 @@ const UserDetail: React.FC = () => {
           <Descriptions.Item label="昵称">{detail?.nickname}</Descriptions.Item>
           <Descriptions.Item label="手机号">{detail?.phone}</Descriptions.Item>
           <Descriptions.Item label="邮箱">{detail?.email}</Descriptions.Item>
-          <Descriptions.Item label="角色">{detail?.role}</Descriptions.Item>
+          <Descriptions.Item label="角色">
+            {(detail?.roles ?? []).map((role: string) => <Tag key={role}>{role}</Tag>)}
+          </Descriptions.Item>
           <Descriptions.Item label="状态">
             <Tag color={statusColor(detail?.status)}>{statusText(detail?.status)}</Tag>
           </Descriptions.Item>
@@ -78,7 +82,9 @@ const UserDetail: React.FC = () => {
           <Descriptions bordered column={2}>
             <Descriptions.Item label="当前余额">
               <span>{detail?.currentBalanceAmount ?? '-'}</span>
-              <Button type="link" size="small" onClick={() => setAmountModalOpen(true)}>充值</Button>
+              <Access accessible={access.canWriteUserAmount}>
+                <Button type="link" size="small" onClick={() => setAmountModalOpen(true)}>充值</Button>
+              </Access>
             </Descriptions.Item>
             <Descriptions.Item label="已用额度">{detail?.usedQuotaAmount ?? '-'}</Descriptions.Item>
             <Descriptions.Item label="总额度">{detail?.totalQuotaAmount ?? '-'}</Descriptions.Item>

@@ -19,13 +19,13 @@ const Login: React.FC = () => {
         message.error(res.message || '登录失败');
         return;
       }
-      const { accessToken, userInfo } = res.data;
+      const { accessToken, userInfo, permissionContext } = res.data;
       localStorage.setItem(TOKEN_KEY, accessToken);
       localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
-      await setInitialState((s) => ({ ...(s ?? {}), currentUser: userInfo }));
+      await setInitialState((s) => ({ ...(s ?? {}), currentUser: userInfo, permissionContext }));
       message.success('登录成功');
       const params = new URLSearchParams(history.location.search);
-      const redirect = params.get('redirect') || '/user-manage/list';
+      const redirect = params.get('redirect') || permissionContext?.menus?.[0]?.path || '/user-manage/list';
       history.push(redirect);
     } catch (error: any) {
       message.error(error?.info?.message || error?.message || '登录失败');

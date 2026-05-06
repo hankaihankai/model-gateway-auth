@@ -16,6 +16,7 @@ declare namespace API {
     tokenType: string;
     expiresIn: number;
     userInfo: UserInfo;
+    permissionContext: PermissionContext;
   }
 
   /**
@@ -25,7 +26,36 @@ declare namespace API {
     userId: number;
     username: string;
     nickname: string;
-    role: 'ADMIN' | 'USER' | string;
+    roles: string[];
+    permissions: string[];
+  }
+
+  /**
+   * 当前用户权限上下文。
+   */
+  interface PermissionContext {
+    roles: string[];
+    permissions: string[];
+    menus: MenuTreeItem[];
+  }
+
+  /**
+   * 动态菜单树节点。
+   */
+  interface MenuTreeItem {
+    menuId: number;
+    parentId: number;
+    menuType: 'DIR' | 'MENU' | 'BUTTON' | string;
+    menuName: string;
+    path?: string;
+    componentKey?: string;
+    permissionCode?: string;
+    icon?: string;
+    visible: boolean;
+    status: number;
+    builtin: boolean;
+    sort: number;
+    children?: MenuTreeItem[];
   }
 
   /**
@@ -37,7 +67,7 @@ declare namespace API {
     nickname: string;
     phone: string;
     email: string;
-    role: 'ADMIN' | 'USER';
+    roles: string[];
     status: 0 | 1 | 2 | 3;
     newApiBound: boolean;
   }
@@ -59,7 +89,7 @@ declare namespace API {
     pageNo?: number;
     pageSize?: number;
     username?: string;
-    role?: 'ADMIN' | 'USER';
+    role?: string;
     status?: 0 | 1 | 2 | 3;
   }
 
@@ -92,7 +122,7 @@ declare namespace API {
     nickname: string;
     phone: string;
     email: string;
-    role: 'ADMIN' | 'USER';
+    roles: string[];
     status: 0 | 1 | 2 | 3;
     newApiBound: boolean;
     newApiUserId?: number;
@@ -149,5 +179,99 @@ declare namespace API {
     total: number;
     pageNo: number;
     pageSize: number;
+  }
+
+  /**
+   * 系统角色。
+   */
+  interface SysRole {
+    roleId: number;
+    roleCode: string;
+    roleName: string;
+    description?: string;
+    status: number;
+    builtin: boolean;
+    sort: number;
+  }
+
+  /**
+   * 角色保存请求。
+   */
+  interface RoleSaveRequest {
+    roleCode?: string;
+    roleName: string;
+    description?: string;
+    status?: number;
+    sort?: number;
+  }
+
+  /**
+   * 系统菜单。
+   */
+  interface SysMenu {
+    menuId: number;
+    parentId: number;
+    menuType: 'DIR' | 'MENU' | 'BUTTON' | string;
+    menuName: string;
+    path?: string;
+    componentKey?: string;
+    permissionCode?: string;
+    icon?: string;
+    visible: boolean;
+    status: number;
+    builtin: boolean;
+    sort: number;
+  }
+
+  /**
+   * 菜单保存请求。
+   */
+  interface MenuSaveRequest {
+    parentId?: number;
+    menuType: string;
+    menuName: string;
+    path?: string;
+    componentKey?: string;
+    permissionCode?: string;
+    icon?: string;
+    visible?: boolean;
+    status?: number;
+    sort?: number;
+  }
+
+  /**
+   * API权限。
+   */
+  interface SysApiPermission {
+    apiPermissionId: number;
+    permissionCode: string;
+    permissionName: string;
+    method: string;
+    pathPattern: string;
+    description?: string;
+    status: number;
+    builtin: boolean;
+    sort: number;
+  }
+
+  /**
+   * API权限保存请求。
+   */
+  interface ApiPermissionSaveRequest {
+    permissionCode?: string;
+    permissionName: string;
+    method: string;
+    pathPattern: string;
+    description?: string;
+    status?: number;
+    sort?: number;
+  }
+
+  /**
+   * 角色授权响应。
+   */
+  interface RoleGrantVo {
+    menuIds: number[];
+    apiPermissionIds: number[];
   }
 }

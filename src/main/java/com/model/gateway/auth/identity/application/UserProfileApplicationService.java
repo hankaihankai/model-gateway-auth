@@ -3,8 +3,8 @@ package com.model.gateway.auth.identity.application;
 import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.newapi.application.NewApiBindingApplicationService;
 import com.model.gateway.auth.newapi.infrastructure.external.NewApiUserAcl;
-import com.model.gateway.auth.shared.enums.UserRoleEnum;
 import com.model.gateway.auth.identity.infrastructure.cache.GatewayCredentialCacheService;
+import com.model.gateway.auth.rbac.application.RbacApplicationService;
 import com.model.gateway.auth.shared.enums.UserStatusEnum;
 import com.model.gateway.auth.config.SaTokenConfig;
 import com.model.gateway.auth.identity.domain.model.LoginUser;
@@ -119,6 +119,11 @@ public class UserProfileApplicationService {
     private final BCryptPasswordEncoder passwordEncoder;
 
     /**
+     * RBAC应用服务。
+     */
+    private final RbacApplicationService rbacApplicationService;
+
+    /**
      * 事务模板。
      */
     private final TransactionTemplate transactionTemplate;
@@ -148,6 +153,7 @@ public class UserProfileApplicationService {
             NewApiBindingApplicationService newApiBindingService,
             GatewayCredentialCacheService gatewayCredentialCacheService,
             BCryptPasswordEncoder passwordEncoder,
+            RbacApplicationService rbacApplicationService,
             TransactionTemplate transactionTemplate) {
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
@@ -156,6 +162,7 @@ public class UserProfileApplicationService {
         this.newApiBindingService = newApiBindingService;
         this.gatewayCredentialCacheService = gatewayCredentialCacheService;
         this.passwordEncoder = passwordEncoder;
+        this.rbacApplicationService = rbacApplicationService;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -184,7 +191,7 @@ public class UserProfileApplicationService {
                 .nickname(user.getNickname())
                 .phone(user.getPhone())
                 .email(user.getEmail())
-                .role(user.getRole())
+                .roles(rbacApplicationService.getRoleCodes(user.getUserId()))
                 .status(user.getStatus())
                 .newApiUserId(binding.getNewApiUserId())
                 .newApiUserName(binding.getNewApiUserName())
@@ -390,7 +397,7 @@ public class UserProfileApplicationService {
                 .nickname(user.getNickname())
                 .phone(user.getPhone())
                 .email(user.getEmail())
-                .role(user.getRole())
+                .roles(rbacApplicationService.getRoleCodes(user.getUserId()))
                 .status(user.getStatus())
                 .newApiBound(newApiBound)
                 .build();
@@ -416,7 +423,7 @@ public class UserProfileApplicationService {
                 .nickname(user.getNickname())
                 .phone(user.getPhone())
                 .email(user.getEmail())
-                .role(user.getRole())
+                .roles(rbacApplicationService.getRoleCodes(user.getUserId()))
                 .status(user.getStatus())
                 .newApiBound(newApiBound);
 
@@ -572,10 +579,10 @@ public class UserProfileApplicationService {
                     .nickname(request.getNickname())
                     .phone(request.getPhone())
                     .email(request.getEmail())
-                    .role(UserRoleEnum.USER.getCode())
                     .status(UserStatusEnum.DISABLE.getCode())
                     .build();
             userMapper.insert(user);
+            rbacApplicationService.assignDefaultUserRole(user.getUserId());
             UserNewApiBinding binding = UserNewApiBinding.builder()
                     .userId(user.getUserId())
                     .status(UserStatusEnum.PENDING.getCode())
