@@ -21,6 +21,7 @@ import { current as currentApi, logout as logoutApi } from '@/services/auth';
 
 const TOKEN_KEY = 'access_token';
 const USER_KEY = 'user_info';
+const PERMISSION_CONTEXT_KEY = 'permission_context';
 const LOGIN_PATH = '/user/login';
 const MENU_COMPONENT_WHITELIST = new Set([
   'UserManageList',
@@ -52,6 +53,17 @@ function getIcon(iconName?: string): React.ReactNode {
  */
 function hasLoginCredential(): boolean {
   return !!localStorage.getItem(TOKEN_KEY);
+}
+
+/**
+ * 从本地缓存读取权限上下文。
+ */
+function getStoredPermissionContext(): API.PermissionContext | undefined {
+  try {
+    return JSON.parse(localStorage.getItem(PERMISSION_CONTEXT_KEY) || 'null') ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -89,6 +101,7 @@ export async function getInitialState(): Promise<{
     if (res.code === 200 && res.data) {
       const { userInfo, permissionContext } = res.data;
       localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
+      localStorage.setItem(PERMISSION_CONTEXT_KEY, JSON.stringify(permissionContext));
       return {
         currentUser: userInfo,
         permissionContext,
@@ -96,13 +109,16 @@ export async function getInitialState(): Promise<{
       };
     }
     const userInfo = JSON.parse(localStorage.getItem(USER_KEY) || 'null') as API.UserInfo | null;
+    const permissionContext = getStoredPermissionContext();
     return {
       currentUser: userInfo ?? undefined,
+      permissionContext,
       settings: defaultSettings as Partial<LayoutSettings>,
     };
   } catch {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(PERMISSION_CONTEXT_KEY);
     return { settings: defaultSettings as Partial<LayoutSettings> };
   }
 }
@@ -119,7 +135,8 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    setInitialState((s) => ({ ...s, currentUser: undefined }));
+    localStorage.removeItem(PERMISSION_CONTEXT_KEY);
+    setInitialState((s) => ({ ...s, currentUser: undefined, permissionContext: undefined }));
     history.replace(`${LOGIN_PATH}?redirect=${encodeURIComponent(history.location.pathname)}`);
   };
 
@@ -146,7 +163,11 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     menuHeaderRender: undefined,
     footerRender: () => null,
     menu: {
-      request: async () => buildLayoutMenus(initialState?.permissionContext?.menus ?? []),
+      params: {
+        userId: initialState?.currentUser?.userId,
+        permissionContext: initialState?.permissionContext ?? getStoredPermissionContext(),
+      },
+      request: async () => buildLayoutMenus((initialState?.permissionContext ?? getStoredPermissionContext())?.menus ?? []),
     },
     onPageChange: () => {
       const { location } = history;
@@ -201,6 +222,7 @@ export const request: RequestConfig = {
         if (error?.response?.status === 401) {
           localStorage.removeItem(TOKEN_KEY);
           localStorage.removeItem(USER_KEY);
+          localStorage.removeItem(PERMISSION_CONTEXT_KEY);
           history.replace(`${LOGIN_PATH}?redirect=${encodeURIComponent(history.location.pathname)}`);
         }
         throw error;

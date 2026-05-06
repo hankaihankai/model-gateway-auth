@@ -8,6 +8,7 @@ import { login as loginApi } from '@/services/auth';
 
 const TOKEN_KEY = 'access_token';
 const USER_KEY = 'user_info';
+const PERMISSION_CONTEXT_KEY = 'permission_context';
 
 const Login: React.FC = () => {
   const { setInitialState } = useModel('@@initialState');
@@ -27,6 +28,7 @@ const Login: React.FC = () => {
       };
       localStorage.setItem(TOKEN_KEY, accessToken);
       localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+      localStorage.setItem(PERMISSION_CONTEXT_KEY, JSON.stringify(permissionContext));
       await setInitialState((s) => ({ ...(s ?? {}), currentUser, permissionContext }));
       message.success('登录成功');
       const params = new URLSearchParams(history.location.search);
