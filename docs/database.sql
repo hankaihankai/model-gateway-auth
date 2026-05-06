@@ -5,6 +5,11 @@
 -- 3. user_new_api_binding 使用PENDING/ENABLE/DISABLE/ERROR状态记录绑定生命周期。
 -- 4. user_new_api_binding.new_api_api_key 存完整明文sk-xxx，仅供Java服务读取后加密写入Redis。
 
+SET NAMES utf8mb4;
+SET character_set_client = utf8mb4;
+SET character_set_connection = utf8mb4;
+SET character_set_results = utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `sys_user` (
   `user_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '用户ID',
   `username` VARCHAR(64) NOT NULL COMMENT '用户名',
@@ -149,8 +154,8 @@ JOIN `sys_api_permission` ap ON ap.builtin = 1
 WHERE r.role_code IN ('SUPER_ADMIN', 'ADMIN');
 
 INSERT IGNORE INTO `sys_user` (`user_id`, `username`, `password`, `nickname`, `phone`, `email`, `status`, `create_time`, `update_time`) VALUES
-(1, 'hankai', '$2a$10$6l7EaZlkk95XqBzdGA2ZMOTGyYjONe2FMGbvel85mH3bdypaQUnS6', 'hankai', NULL, NULL, 0, '2026-04-28 08:54:16', '2026-05-01 14:57:54'),
-(2, 'testuser', '$2a$10$6l7EaZlkk95XqBzdGA2ZMOTGyYjONe2FMGbvel85mH3bdypaQUnS6', 'zhangshao', NULL, NULL, 0, '2026-04-28 08:54:16', '2026-05-01 14:38:44'),
+(1, 'hankai', '$2a$10$aYgsjiIHzD4EjcYk5hdSU.AzHSrOEVZ901tVXZxImK4ifjIBB7Bp2', 'hankai', NULL, NULL, 0, '2026-04-28 08:54:16', '2026-05-01 14:57:54'),
+(2, 'testuser', '$2a$10$aYgsjiIHzD4EjcYk5hdSU.AzHSrOEVZ901tVXZxImK4ifjIBB7Bp2', 'zhangshao', NULL, NULL, 0, '2026-04-28 08:54:16', '2026-05-01 14:38:44'),
 (3, 'admin', '$2a$10$HUVamuMiTEq8YmmcF8JwJucjkJaFv6qut/Q33WHJXlCs7e7sIXFaG', '管理员', '15298987890', 'test@qq.com', 0, '2026-05-01 16:40:34', '2026-05-01 16:40:34');
 
 INSERT IGNORE INTO `sys_user_role` (`user_id`, `role_id`)
