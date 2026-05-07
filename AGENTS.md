@@ -11,6 +11,7 @@ This is a Spring Boot 3 / Java 17 authentication service for the model gateway.
 - `domain`, `dto`, `vo`: persistence models, request DTOs, and response objects.
 - `src/main/resources/application.yml`: application configuration.
 - `apisix/`: APISIX config, Dashboard config, and `model-gateway-auth.lua` plugin.
+- `model-gateway-auth-front/`: front-end project.
 - `docs/`: deployment guide and database schema.
 - `Dockerfile`, `docker-compose.yml`, `.env`: Docker deployment files.
 

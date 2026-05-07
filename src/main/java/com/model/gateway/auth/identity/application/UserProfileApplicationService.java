@@ -2,6 +2,7 @@ package com.model.gateway.auth.identity.application;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.newapi.application.NewApiBindingApplicationService;
+import com.model.gateway.auth.newapi.infrastructure.config.NewApiUserManagerProperties;
 import com.model.gateway.auth.newapi.infrastructure.external.NewApiUserAcl;
 import com.model.gateway.auth.identity.infrastructure.cache.GatewayCredentialCacheService;
 import com.model.gateway.auth.rbac.application.RbacApplicationService;
@@ -124,6 +125,11 @@ public class UserProfileApplicationService {
     private final RbacApplicationService rbacApplicationService;
 
     /**
+     * new-api外部用户管理接口配置。
+     */
+    private final NewApiUserManagerProperties newApiUserManagerProperties;
+
+    /**
      * 事务模板。
      */
     private final TransactionTemplate transactionTemplate;
@@ -143,6 +149,8 @@ public class UserProfileApplicationService {
      * @param newApiBindingService new-api绑定业务服务
      * @param gatewayCredentialCacheService 网关凭证Redis缓存服务
      * @param passwordEncoder BCrypt密码编码器
+     * @param rbacApplicationService RBAC应用服务
+     * @param newApiUserManagerProperties new-api外部用户管理接口配置
      * @param transactionTemplate 事务模板
      */
     public UserProfileApplicationService(
@@ -154,6 +162,7 @@ public class UserProfileApplicationService {
             GatewayCredentialCacheService gatewayCredentialCacheService,
             BCryptPasswordEncoder passwordEncoder,
             RbacApplicationService rbacApplicationService,
+            NewApiUserManagerProperties newApiUserManagerProperties,
             TransactionTemplate transactionTemplate) {
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
@@ -163,6 +172,7 @@ public class UserProfileApplicationService {
         this.gatewayCredentialCacheService = gatewayCredentialCacheService;
         this.passwordEncoder = passwordEncoder;
         this.rbacApplicationService = rbacApplicationService;
+        this.newApiUserManagerProperties = newApiUserManagerProperties;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -212,7 +222,13 @@ public class UserProfileApplicationService {
      * @return 创建用户响应
      */
     public UserCreateResponse createUser(UserCreateRequest request) {
-        return createUserInternal(request, true);
+        UserCreateResponse response = createUserInternal(request, false);
+        adminBindNewApi(response.getUserId());
+        return UserCreateResponse.builder()
+                .userId(response.getUserId())
+                .username(response.getUsername())
+                .newApiBound(Boolean.TRUE)
+                .build();
     }
 
     /**
@@ -230,7 +246,15 @@ public class UserProfileApplicationService {
                 .email(request.getEmail())
                 .build();
         boolean bindNewApi = request.getBindNewApi() == null || request.getBindNewApi();
-        return createUserInternal(userRequest, bindNewApi);
+        UserCreateResponse response = createUserInternal(userRequest, false);
+        if (bindNewApi) {
+            adminBindNewApi(response.getUserId());
+        }
+        return UserCreateResponse.builder()
+                .userId(response.getUserId())
+                .username(response.getUsername())
+                .newApiBound(bindNewApi)
+                .build();
     }
 
     /**
@@ -348,10 +372,9 @@ public class UserProfileApplicationService {
                 .username(user.getUsername())
                 .bindingId(bindingId)
                 .build();
-        String randomPassword = java.util.UUID.randomUUID().toString().substring(0, 8);
         UserCreateRequest request = UserCreateRequest.builder()
                 .username(user.getUsername())
-                .password(randomPassword)
+                .password(newApiUserManagerProperties.getDefaultPassword())
                 .nickname(user.getNickname())
                 .build();
         bindNewApiUser(context, request);

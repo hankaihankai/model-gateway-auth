@@ -26,4 +26,9 @@ public class NewApiUserManagerProperties {
      * HTTP请求超时时间毫秒数。
      */
     private Integer timeoutMillis = 5000;
+
+    /**
+     * 管理员补绑new-api用户时使用的默认密码。
+     */
+    private String defaultPassword;
 }
