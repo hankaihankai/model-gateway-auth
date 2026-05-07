@@ -141,6 +141,35 @@ public interface UserMapper {
     int updateStatus(@Param("userId") Long userId, @Param("status") Integer status);
 
     /**
+     * 更新用户基本资料。
+     *
+     * @param user 用户基本资料
+     * @return 影响行数
+     */
+    @Update("""
+            UPDATE sys_user
+            SET nickname = #{nickname},
+                phone = #{phone},
+                email = #{email}
+            WHERE user_id = #{userId}
+            """)
+    int updateProfile(SysUser user);
+
+    /**
+     * 更新用户密码。
+     *
+     * @param userId 用户ID
+     * @param password BCrypt加密后的密码
+     * @return 影响行数
+     */
+    @Update("""
+            UPDATE sys_user
+            SET password = #{password}
+            WHERE user_id = #{userId}
+            """)
+    int updatePassword(@Param("userId") Long userId, @Param("password") String password);
+
+    /**
      * 条件查询用户总数。
      *
      * @param username 用户名(模糊)

@@ -1,9 +1,10 @@
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { Access, useAccess } from '@umijs/max';
-import { App, Button, Tag, Modal, Form, Input, Switch, Select, Space } from 'antd';
+import { App, Button, Tag, Modal, Form, Input, Switch, Select, Space, Dropdown } from 'antd';
 import React, { useRef, useState } from 'react';
 import { Link } from '@umijs/max';
+import { MoreOutlined } from '@ant-design/icons';
 import {
   listUsers,
   createUser,
@@ -12,6 +13,7 @@ import {
   getUserModels,
   getUserRoles,
   updateUserRoles,
+  resetUserPassword,
 } from '@/services/user';
 import { listRoles } from '@/services/rbac';
 
@@ -46,6 +48,9 @@ const UserList: React.FC = () => {
   const [testAiForm] = Form.useForm();
   const [testAiResult, setTestAiResult] = useState<string>('');
   const [testAiLoading, setTestAiLoading] = useState(false);
+  const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState<API.UserListItem | null>(null);
+  const [resetPasswordForm] = Form.useForm<{ newPassword: string; confirmPassword: string }>();
 
   const handleCreate = async (values: any) => {
     await createUser({
@@ -76,6 +81,46 @@ const UserList: React.FC = () => {
     message.success('角色已更新');
     setRoleModalOpen(false);
     actionRef.current?.reload();
+  };
+
+  const openTestAiModal = async (record: API.UserListItem) => {
+    setTestAiUserId(record.userId);
+    setTestAiModalOpen(true);
+    setTestAiResult('');
+    testAiForm.resetFields();
+    try {
+      const res = await getUserModels(record.userId);
+      const models = Array.isArray(res) ? res : ((res as any)?.data ?? []);
+      const model = Array.isArray(models) && models.length > 0 ? models[0] : 'gpt-4o-mini';
+      testAiForm.setFieldsValue({
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: 'hello' }],
+        }, null, 2),
+      });
+    } catch {
+      testAiForm.setFieldsValue({
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'hello' }],
+        }, null, 2),
+      });
+    }
+  };
+
+  const openResetPasswordModal = (record: API.UserListItem) => {
+    setResetPasswordUser(record);
+    setResetPasswordModalOpen(true);
+    resetPasswordForm.resetFields();
+  };
+
+  const handleResetPassword = async (values: { newPassword: string; confirmPassword: string }) => {
+    if (!resetPasswordUser) return;
+    await resetUserPassword(resetPasswordUser.userId, { newPassword: values.newPassword });
+    message.success('密码已重置');
+    setResetPasswordModalOpen(false);
+    setResetPasswordUser(null);
+    resetPasswordForm.resetFields();
   };
 
   const handleTestAi = async (values: any) => {
@@ -197,13 +242,21 @@ const UserList: React.FC = () => {
       render: (_, record) => (
         <Space>
           <Link to={`/user-manage/detail/${record.userId}`}>查看</Link>
-          <Access accessible={access.canWriteUserRole}>
-            <a onClick={() => openRoleModal(record)}>角色</a>
-          </Access>
-          <Access accessible={access.canWriteUser}>
-            {!record.newApiBound && (
-              <a
-                onClick={async () => {
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: [
+                access.canWriteUserRole ? { key: 'role', label: '角色' } : null,
+                access.canWriteUser && !record.newApiBound ? { key: 'bind', label: '绑定 new-api' } : null,
+                access.canWriteUser ? { key: 'resetPassword', label: '重置密码' } : null,
+                record.newApiBound ? { key: 'testAi', label: '测试AI' } : null,
+              ].filter(Boolean) as any[],
+              onClick: async ({ key }) => {
+                if (key === 'role') {
+                  await openRoleModal(record);
+                  return;
+                }
+                if (key === 'bind') {
                   try {
                     await bindNewApi(record.userId);
                     message.success('绑定成功');
@@ -211,42 +264,22 @@ const UserList: React.FC = () => {
                   } catch (error: any) {
                     message.error(error?.message || '绑定失败');
                   }
-                }}
-              >
-                绑定
-              </a>
-            )}
-          </Access>
-          {record.newApiBound && (
-            <a
-              onClick={async () => {
-                setTestAiUserId(record.userId);
-                setTestAiModalOpen(true);
-                setTestAiResult('');
-                testAiForm.resetFields();
-                try {
-                  const res = await getUserModels(record.userId);
-                  const models = Array.isArray(res) ? res : ((res as any)?.data ?? []);
-                  const model = Array.isArray(models) && models.length > 0 ? models[0] : 'gpt-4o-mini';
-                  testAiForm.setFieldsValue({
-                    body: JSON.stringify({
-                      model,
-                      messages: [{ role: 'user', content: 'hello' }],
-                    }, null, 2),
-                  });
-                } catch {
-                  testAiForm.setFieldsValue({
-                    body: JSON.stringify({
-                      model: 'gpt-4o-mini',
-                      messages: [{ role: 'user', content: 'hello' }],
-                    }, null, 2),
-                  });
+                  return;
                 }
-              }}
-            >
-              测试AI
-            </a>
-          )}
+                if (key === 'resetPassword') {
+                  openResetPasswordModal(record);
+                  return;
+                }
+                if (key === 'testAi') {
+                  await openTestAiModal(record);
+                }
+              },
+            }}
+          >
+            <Button type="link" size="small" icon={<MoreOutlined />}>
+              更多
+            </Button>
+          </Dropdown>
         </Space>
       ),
     },
@@ -290,6 +323,48 @@ const UserList: React.FC = () => {
         <Form form={roleForm} layout="vertical" onFinish={handleRoleSave}>
           <Form.Item name="roleIds" label="角色">
             <Select mode="multiple" options={roleOptions} optionFilterProp="label" />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        title={`重置密码${resetPasswordUser ? ` - ${resetPasswordUser.username}` : ''}`}
+        open={resetPasswordModalOpen}
+        onOk={() => resetPasswordForm.submit()}
+        onCancel={() => {
+          setResetPasswordModalOpen(false);
+          setResetPasswordUser(null);
+          resetPasswordForm.resetFields();
+        }}
+        destroyOnClose
+      >
+        <Form form={resetPasswordForm} onFinish={handleResetPassword} layout="vertical">
+          <Form.Item
+            name="newPassword"
+            label="新密码"
+            rules={[
+              { required: true, message: '请输入新密码' },
+              { min: 6, message: '新密码长度不能少于6位' },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item
+            name="confirmPassword"
+            label="确认新密码"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: '请确认新密码' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('两次输入的新密码不一致'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
           </Form.Item>
         </Form>
       </Modal>

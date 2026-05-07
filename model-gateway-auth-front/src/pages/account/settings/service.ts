@@ -1,8 +1,17 @@
 import { request } from '@umijs/max';
-import type { CurrentUser, GeographicItemType } from './data';
+import type { GeographicItemType } from './data';
+import { getCurrentUserProfile } from '@/services/user';
 
-export async function queryCurrent(): Promise<{ data: CurrentUser }> {
-  return request('/api/accountSettingCurrentUser');
+/**
+ * 兼容统一响应包装和已解包数据。
+ */
+const unwrapApiData = <T,>(response: T | API.ApiResponse<T>): T => {
+  return ((response as API.ApiResponse<T>)?.data ?? response) as T;
+};
+
+export async function queryCurrent(): Promise<API.UserProfileVo> {
+  const response = await getCurrentUserProfile();
+  return unwrapApiData<API.UserProfileVo>(response as API.UserProfileVo | API.ApiResponse<API.UserProfileVo>);
 }
 
 export async function queryProvince(): Promise<{ data: GeographicItemType[] }> {

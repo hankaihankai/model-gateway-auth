@@ -1,6 +1,7 @@
 package com.model.gateway.auth.identity.interfaces.http;
 
 import com.model.gateway.auth.shared.api.ApiResponse;
+import com.model.gateway.auth.identity.interfaces.dto.AdminPasswordResetRequest;
 import com.model.gateway.auth.identity.interfaces.dto.AdminUserCreateRequest;
 import com.model.gateway.auth.identity.interfaces.dto.UserAmountUpdateRequest;
 import com.model.gateway.auth.identity.interfaces.vo.AdminUserDetailVo;
@@ -100,6 +101,22 @@ public class AdminUserController {
             @PathVariable Long userId,
             @RequestParam Integer status) {
         userProfileService.adminUpdateStatus(userId, status);
+        return ApiResponse.success(Boolean.TRUE);
+    }
+
+    /**
+     * 管理员重置用户密码。
+     *
+     * @param userId 用户ID
+     * @param request 密码重置请求
+     * @return 重置结果
+     */
+    @PostMapping("/{userId}/password/reset")
+    @SaCheckPermission(RbacPermissionConstants.USER_WRITE)
+    public ApiResponse<Boolean> resetPassword(
+            @PathVariable Long userId,
+            @RequestBody AdminPasswordResetRequest request) {
+        userProfileService.adminResetPassword(userId, request);
         return ApiResponse.success(Boolean.TRUE);
     }
 

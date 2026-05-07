@@ -30,6 +30,45 @@ export async function getUserDetail(userId: number) {
 }
 
 /**
+ * 查询当前用户资料。
+ */
+export async function getCurrentUserProfile() {
+  return request<API.UserProfileVo>('/model-gateway-auth/api/user/profile', {
+    method: 'GET',
+  });
+}
+
+/**
+ * 更新当前用户资料。
+ */
+export async function updateCurrentUserProfile(body: API.UserProfileUpdateRequest) {
+  return request<boolean>('/model-gateway-auth/api/user/profile', {
+    method: 'PUT',
+    data: body,
+  });
+}
+
+/**
+ * 修改当前用户密码。
+ */
+export async function updateCurrentUserPassword(body: API.UserPasswordUpdateRequest) {
+  return request<boolean>('/model-gateway-auth/api/user/password', {
+    method: 'PUT',
+    data: body,
+  });
+}
+
+/**
+ * 管理员重置用户密码。
+ */
+export async function resetUserPassword(userId: number, body: API.AdminPasswordResetRequest) {
+  return request<boolean>(`/model-gateway-auth/api/admin/users/${userId}/password/reset`, {
+    method: 'POST',
+    data: body,
+  });
+}
+
+/**
  * 管理员查询用户Token使用记录。
  */
 export async function getUserTokenRecords(userId: number, params: API.UserTokenRecordsQuery) {

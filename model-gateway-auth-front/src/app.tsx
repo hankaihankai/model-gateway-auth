@@ -15,6 +15,7 @@ import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 import type { RequestConfig, RunTimeLayoutConfig } from '@umijs/max';
 import { history } from '@umijs/max';
 import { App, Dropdown, message } from 'antd';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import defaultSettings from '../config/defaultSettings';
 import { current as currentApi, logout as logoutApi } from '@/services/auth';
@@ -23,6 +24,10 @@ const TOKEN_KEY = 'access_token';
 const USER_KEY = 'user_info';
 const PERMISSION_CONTEXT_KEY = 'permission_context';
 const LOGIN_PATH = '/user/login';
+/**
+ * React Query全局客户端。
+ */
+const queryClient = new QueryClient();
 const MENU_COMPONENT_WHITELIST = new Set([
   'UserManageList',
   'RoleManageList',
@@ -151,6 +156,12 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
           <Dropdown
             menu={{
               items: [
+                {
+                  key: 'settings',
+                  icon: <SettingOutlined />,
+                  label: '个人设置',
+                  onClick: () => history.push('/account/settings'),
+                },
                 { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout },
               ],
             }}
@@ -176,7 +187,11 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         history.replace(`${LOGIN_PATH}?redirect=${encodeURIComponent(location.pathname)}`);
       }
     },
-    childrenRender: (children) => <App>{children}</App>,
+    childrenRender: (children) => (
+      <QueryClientProvider client={queryClient}>
+        <App>{children}</App>
+      </QueryClientProvider>
+    ),
   };
 };
 

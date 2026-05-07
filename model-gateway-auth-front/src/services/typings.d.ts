@@ -94,6 +94,52 @@ declare namespace API {
   }
 
   /**
+   * 当前用户资料响应。
+   */
+  interface UserProfileVo {
+    userId: number;
+    username: string;
+    nickname: string;
+    phone: string;
+    email: string;
+    roles: string[];
+    status: 0 | 1 | 2 | 3;
+    newApiUserId?: number;
+    newApiUserName?: string;
+    currentBalanceAmount?: string;
+    usedQuotaAmount?: string;
+    totalQuotaAmount?: string;
+    quota?: number;
+    usedQuota?: number;
+    totalQuota?: number;
+    quotaPerUnit?: number;
+  }
+
+  /**
+   * 当前用户资料更新请求。
+   */
+  interface UserProfileUpdateRequest {
+    nickname: string;
+    phone: string;
+    email: string;
+  }
+
+  /**
+   * 当前用户密码修改请求。
+   */
+  interface UserPasswordUpdateRequest {
+    oldPassword: string;
+    newPassword: string;
+  }
+
+  /**
+   * 管理员密码重置请求。
+   */
+  interface AdminPasswordResetRequest {
+    newPassword: string;
+  }
+
+  /**
    * 管理员设置用户金额请求。
    */
   interface UserAmountUpdateRequest {

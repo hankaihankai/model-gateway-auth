@@ -13,8 +13,11 @@ import com.model.gateway.auth.newapi.domain.model.UserNewApiBindingLog;
 import com.model.gateway.auth.identity.domain.model.SysUser;
 import com.model.gateway.auth.newapi.domain.model.UserNewApiBinding;
 import com.model.gateway.auth.identity.interfaces.dto.UserAmountUpdateRequest;
+import com.model.gateway.auth.identity.interfaces.dto.AdminPasswordResetRequest;
 import com.model.gateway.auth.identity.interfaces.dto.AdminUserCreateRequest;
 import com.model.gateway.auth.identity.interfaces.dto.UserCreateRequest;
+import com.model.gateway.auth.identity.interfaces.dto.UserPasswordUpdateRequest;
+import com.model.gateway.auth.identity.interfaces.dto.UserProfileUpdateRequest;
 import com.model.gateway.auth.shared.exception.AuthException;
 import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
 import com.model.gateway.auth.newapi.infrastructure.persistence.mapper.UserNewApiBindingMapper;
@@ -58,6 +61,11 @@ public class UserProfileApplicationService {
      * new-api用户名创建最大重试次数。
      */
     private static final int NEW_API_CREATE_RETRY_TIMES = 3;
+
+    /**
+     * 最小密码长度。
+     */
+    private static final int MIN_PASSWORD_LENGTH = 6;
 
     /**
      * 额度锁有效期秒数。
@@ -255,6 +263,66 @@ public class UserProfileApplicationService {
                 .username(response.getUsername())
                 .newApiBound(bindNewApi)
                 .build();
+    }
+
+    /**
+     * 更新当前用户基本资料。
+     *
+     * @param request 用户资料更新请求
+     */
+    public void updateProfile(UserProfileUpdateRequest request) {
+        checkProfileUpdateRequest(request);
+        Long userId = StpUtil.getLoginIdAsLong();
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        checkPhoneAvailable(userId, request.getPhone());
+        checkEmailAvailable(userId, request.getEmail());
+        SysUser updateUser = SysUser.builder()
+                .userId(userId)
+                .nickname(request.getNickname().trim())
+                .phone(request.getPhone().trim())
+                .email(request.getEmail().trim())
+                .build();
+        userMapper.updateProfile(updateUser);
+        SysUser refreshedUser = userMapper.selectByUserId(userId);
+        LoginUser loginUser = LoginUser.from(refreshedUser);
+        loginUser.setRoles(rbacApplicationService.getRoleCodes(userId));
+        StpUtil.getSession().set(SaTokenConfig.SESSION_LOGIN_USER_KEY, loginUser);
+    }
+
+    /**
+     * 修改当前用户密码。
+     *
+     * @param request 密码修改请求
+     */
+    public void updatePassword(UserPasswordUpdateRequest request) {
+        checkPasswordUpdateRequest(request);
+        Long userId = StpUtil.getLoginIdAsLong();
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new AuthException("旧密码错误");
+        }
+        userMapper.updatePassword(userId, passwordEncoder.encode(request.getNewPassword()));
+    }
+
+    /**
+     * 管理员重置用户密码。
+     *
+     * @param userId 用户ID
+     * @param request 密码重置请求
+     */
+    public void adminResetPassword(Long userId, AdminPasswordResetRequest request) {
+        checkResetPasswordRequest(request);
+        SysUser user = userMapper.selectByUserId(userId);
+        if (user == null) {
+            throw new AuthException("用户不存在");
+        }
+        userMapper.updatePassword(userId, passwordEncoder.encode(request.getNewPassword()));
     }
 
     /**
@@ -569,6 +637,83 @@ public class UserProfileApplicationService {
     private void checkCreateRequest(UserCreateRequest request) {
         if (request == null || !StringUtils.hasText(request.getUsername()) || !StringUtils.hasText(request.getPassword())) {
             throw new AuthException("用户名和密码不能为空");
+        }
+    }
+
+    /**
+     * 校验资料更新请求。
+     *
+     * @param request 用户资料更新请求
+     */
+    private void checkProfileUpdateRequest(UserProfileUpdateRequest request) {
+        if (request == null
+                || !StringUtils.hasText(request.getNickname())
+                || !StringUtils.hasText(request.getPhone())
+                || !StringUtils.hasText(request.getEmail())) {
+            throw new AuthException("昵称、手机号和邮箱不能为空");
+        }
+    }
+
+    /**
+     * 校验密码修改请求。
+     *
+     * @param request 密码修改请求
+     */
+    private void checkPasswordUpdateRequest(UserPasswordUpdateRequest request) {
+        if (request == null
+                || !StringUtils.hasText(request.getOldPassword())
+                || !StringUtils.hasText(request.getNewPassword())) {
+            throw new AuthException("旧密码和新密码不能为空");
+        }
+        checkNewPassword(request.getNewPassword());
+    }
+
+    /**
+     * 校验密码重置请求。
+     *
+     * @param request 密码重置请求
+     */
+    private void checkResetPasswordRequest(AdminPasswordResetRequest request) {
+        if (request == null || !StringUtils.hasText(request.getNewPassword())) {
+            throw new AuthException("新密码不能为空");
+        }
+        checkNewPassword(request.getNewPassword());
+    }
+
+    /**
+     * 校验新密码强度。
+     *
+     * @param newPassword 新明文密码
+     */
+    private void checkNewPassword(String newPassword) {
+        if (newPassword.length() < MIN_PASSWORD_LENGTH) {
+            throw new AuthException("新密码长度不能少于6位");
+        }
+    }
+
+    /**
+     * 校验手机号未被其他用户占用。
+     *
+     * @param userId 当前用户ID
+     * @param phone 手机号
+     */
+    private void checkPhoneAvailable(Long userId, String phone) {
+        SysUser exists = userMapper.selectByPhone(phone.trim());
+        if (exists != null && !exists.getUserId().equals(userId)) {
+            throw new AuthException("手机号已存在");
+        }
+    }
+
+    /**
+     * 校验邮箱未被其他用户占用。
+     *
+     * @param userId 当前用户ID
+     * @param email 邮箱
+     */
+    private void checkEmailAvailable(Long userId, String email) {
+        SysUser exists = userMapper.selectByEmail(email.trim());
+        if (exists != null && !exists.getUserId().equals(userId)) {
+            throw new AuthException("邮箱已存在");
         }
     }
 

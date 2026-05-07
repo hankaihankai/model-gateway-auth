@@ -10,6 +10,7 @@ export default [
     ],
   },
   { path: '/', redirect: '/user-manage/list' },
+  { path: '/account/settings', component: './account/settings', hideInMenu: true },
   {
     path: '/user-manage',
     name: '用户管理',

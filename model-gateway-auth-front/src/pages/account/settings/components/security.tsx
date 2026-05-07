@@ -1,59 +1,99 @@
-import { List } from 'antd';
-import React from 'react';
+import { List, Modal, Form, Input, App } from 'antd';
+import { history } from '@umijs/max';
+import React, { useState } from 'react';
+import { updateCurrentUserPassword } from '@/services/user';
 
-type Unpacked<T> = T extends (infer U)[] ? U : T;
+const TOKEN_KEY = 'access_token';
+const USER_KEY = 'user_info';
+const PERMISSION_CONTEXT_KEY = 'permission_context';
 
-const passwordStrength = {
-  strong: <span className="strong">强</span>,
-  medium: <span className="medium">中</span>,
-  weak: <span className="weak">弱 Weak</span>,
+type SecurityItem = {
+  title: string;
+  description: React.ReactNode;
+  actions: React.ReactNode[];
 };
 
 const SecurityView: React.FC = () => {
-  const getData = () => [
+  const { message } = App.useApp();
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordForm] = Form.useForm<API.UserPasswordUpdateRequest & { confirmPassword: string }>();
+
+  const handlePasswordSave = async (values: API.UserPasswordUpdateRequest & { confirmPassword: string }) => {
+    await updateCurrentUserPassword({
+      oldPassword: values.oldPassword,
+      newPassword: values.newPassword,
+    });
+    message.success('密码已修改，请重新登录');
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(PERMISSION_CONTEXT_KEY);
+    history.replace('/user/login');
+  };
+
+  const data: SecurityItem[] = [
     {
       title: '账户密码',
-      description: (
-        <>
-          当前密码强度：
-          {passwordStrength.strong}
-        </>
-      ),
-      actions: [<a key="Modify">修改</a>],
-    },
-    {
-      title: '密保手机',
-      description: `已绑定手机：138****8293`,
-      actions: [<a key="Modify">修改</a>],
-    },
-    {
-      title: '密保问题',
-      description: '未设置密保问题，密保问题可有效保护账户安全',
-      actions: [<a key="Set">设置</a>],
-    },
-    {
-      title: '备用邮箱',
-      description: `已绑定邮箱：ant***sign.com`,
-      actions: [<a key="Modify">修改</a>],
-    },
-    {
-      title: 'MFA 设备',
-      description: '未绑定 MFA 设备，绑定后，可以进行二次确认',
-      actions: [<a key="bind">绑定</a>],
+      description: '用于登录 Model Gateway Auth 的账号密码',
+      actions: [<a key="modify-password" onClick={() => setPasswordModalOpen(true)}>修改</a>],
     },
   ];
 
-  const data = getData();
   return (
-    <List<Unpacked<typeof data>>
-      itemLayout="horizontal"
-      dataSource={data}
-      renderItem={(item) => (
-        <List.Item actions={item.actions}>
-          <List.Item.Meta title={item.title} description={item.description} />
-        </List.Item>
-      )}
-    />
+    <>
+      <List<SecurityItem>
+        itemLayout="horizontal"
+        dataSource={data}
+        renderItem={(item) => (
+          <List.Item actions={item.actions}>
+            <List.Item.Meta title={item.title} description={item.description} />
+          </List.Item>
+        )}
+      />
+      <Modal
+        title="修改密码"
+        open={passwordModalOpen}
+        onOk={() => passwordForm.submit()}
+        onCancel={() => {
+          setPasswordModalOpen(false);
+          passwordForm.resetFields();
+        }}
+        destroyOnClose
+      >
+        <Form form={passwordForm} layout="vertical" onFinish={handlePasswordSave}>
+          <Form.Item name="oldPassword" label="旧密码" rules={[{ required: true, message: '请输入旧密码' }]}>
+            <Input.Password autoComplete="current-password" />
+          </Form.Item>
+          <Form.Item
+            name="newPassword"
+            label="新密码"
+            rules={[
+              { required: true, message: '请输入新密码' },
+              { min: 6, message: '新密码长度不能少于6位' },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item
+            name="confirmPassword"
+            label="确认新密码"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: '请确认新密码' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('两次输入的新密码不一致'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
   );
 };
 

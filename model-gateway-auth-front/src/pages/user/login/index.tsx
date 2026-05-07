@@ -11,7 +11,7 @@ const USER_KEY = 'user_info';
 const PERMISSION_CONTEXT_KEY = 'permission_context';
 
 const Login: React.FC = () => {
-  const { setInitialState } = useModel('@@initialState');
+  const { refresh } = useModel('@@initialState');
 
   const handleSubmit = async (values: { username: string; password: string }) => {
     try {
@@ -29,11 +29,11 @@ const Login: React.FC = () => {
       localStorage.setItem(TOKEN_KEY, accessToken);
       localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
       localStorage.setItem(PERMISSION_CONTEXT_KEY, JSON.stringify(permissionContext));
-      await setInitialState((s) => ({ ...(s ?? {}), currentUser, permissionContext }));
+      await refresh();
       message.success('登录成功');
       const params = new URLSearchParams(history.location.search);
       const redirect = params.get('redirect') || permissionContext?.menus?.[0]?.path || '/user-manage/list';
-      history.push(redirect);
+      window.location.replace(redirect);
     } catch (error: any) {
       message.error(error?.info?.message || error?.message || '登录失败');
     }

@@ -2,6 +2,8 @@ package com.model.gateway.auth.identity.interfaces.http;
 
 import com.model.gateway.auth.shared.api.ApiResponse;
 import com.model.gateway.auth.identity.interfaces.dto.UserCreateRequest;
+import com.model.gateway.auth.identity.interfaces.dto.UserPasswordUpdateRequest;
+import com.model.gateway.auth.identity.interfaces.dto.UserProfileUpdateRequest;
 import com.model.gateway.auth.shared.exception.AuthException;
 import com.model.gateway.auth.identity.application.UserProfileApplicationService;
 import com.model.gateway.auth.identity.interfaces.vo.UserCreateResponse;
@@ -9,6 +11,7 @@ import com.model.gateway.auth.identity.interfaces.vo.UserProfileVo;
 import com.model.gateway.auth.identity.interfaces.vo.UserTokenRecordsVo;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -49,6 +52,30 @@ public class UserController {
     @GetMapping("/profile")
     public ApiResponse<UserProfileVo> profile() {
         return ApiResponse.success(userProfileService.getProfile());
+    }
+
+    /**
+     * 更新当前用户资料。
+     *
+     * @param request 用户资料更新请求
+     * @return 更新结果
+     */
+    @PutMapping("/profile")
+    public ApiResponse<Boolean> updateProfile(@RequestBody UserProfileUpdateRequest request) {
+        userProfileService.updateProfile(request);
+        return ApiResponse.success(Boolean.TRUE);
+    }
+
+    /**
+     * 修改当前用户密码。
+     *
+     * @param request 密码修改请求
+     * @return 修改结果
+     */
+    @PutMapping("/password")
+    public ApiResponse<Boolean> updatePassword(@RequestBody UserPasswordUpdateRequest request) {
+        userProfileService.updatePassword(request);
+        return ApiResponse.success(Boolean.TRUE);
     }
 
     /**
