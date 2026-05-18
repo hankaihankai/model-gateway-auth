@@ -1,16 +1,18 @@
 package com.model.gateway.auth.identity.application;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import cn.dev33.satoken.stp.StpUtil;
+import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysUserMapper;
 import com.model.gateway.auth.newapi.application.NewApiBindingApplicationService;
 import com.model.gateway.auth.newapi.infrastructure.config.NewApiUserManagerProperties;
 import com.model.gateway.auth.newapi.infrastructure.external.NewApiUserAcl;
 import com.model.gateway.auth.identity.infrastructure.cache.GatewayCredentialCacheService;
-import com.model.gateway.auth.rbac.application.RbacApplicationService;
+import com.model.gateway.auth.system.application.RbacApplicationService;
 import com.model.gateway.auth.shared.enums.UserStatusEnum;
 import com.model.gateway.auth.config.SaTokenConfig;
 import com.model.gateway.auth.identity.domain.model.LoginUser;
 import com.model.gateway.auth.newapi.domain.model.UserNewApiBindingLog;
-import com.model.gateway.auth.identity.domain.model.SysUser;
+import com.model.gateway.auth.system.domain.model.SysUser;
 import com.model.gateway.auth.newapi.domain.model.UserNewApiBinding;
 import com.model.gateway.auth.identity.interfaces.dto.UserAmountUpdateRequest;
 import com.model.gateway.auth.identity.interfaces.dto.AdminPasswordResetRequest;
@@ -19,7 +21,6 @@ import com.model.gateway.auth.identity.interfaces.dto.UserCreateRequest;
 import com.model.gateway.auth.identity.interfaces.dto.UserPasswordUpdateRequest;
 import com.model.gateway.auth.identity.interfaces.dto.UserProfileUpdateRequest;
 import com.model.gateway.auth.shared.exception.AuthException;
-import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
 import com.model.gateway.auth.newapi.infrastructure.persistence.mapper.UserNewApiBindingMapper;
 import com.model.gateway.auth.newapi.infrastructure.persistence.mapper.UserNewApiBindingLogMapper;
 import com.model.gateway.auth.identity.interfaces.vo.AdminUserDetailVo;
@@ -95,7 +96,7 @@ public class UserProfileApplicationService {
     /**
      * 用户数据访问对象。
      */
-    private final UserMapper userMapper;
+    private final SysUserMapper sysUserMapper;
 
     /**
      * new-api绑定数据访问对象。
@@ -150,7 +151,7 @@ public class UserProfileApplicationService {
     /**
      * 创建个人用户资料业务服务。
      *
-     * @param userMapper 用户数据访问对象
+     * @param sysUserMapper 用户数据访问对象
      * @param bindingMapper new-api绑定数据访问对象
      * @param bindingLogMapper new-api绑定日志数据访问对象
      * @param newApiUserAcl new-api外部用户管理接口ACL
@@ -162,7 +163,7 @@ public class UserProfileApplicationService {
      * @param transactionTemplate 事务模板
      */
     public UserProfileApplicationService(
-            UserMapper userMapper,
+            SysUserMapper sysUserMapper,
             UserNewApiBindingMapper bindingMapper,
             UserNewApiBindingLogMapper bindingLogMapper,
             NewApiUserAcl newApiUserAcl,
@@ -172,7 +173,7 @@ public class UserProfileApplicationService {
             RbacApplicationService rbacApplicationService,
             NewApiUserManagerProperties newApiUserManagerProperties,
             TransactionTemplate transactionTemplate) {
-        this.userMapper = userMapper;
+        this.sysUserMapper = sysUserMapper;
         this.bindingMapper = bindingMapper;
         this.bindingLogMapper = bindingLogMapper;
         this.newApiUserAcl = newApiUserAcl;
@@ -273,7 +274,7 @@ public class UserProfileApplicationService {
     public void updateProfile(UserProfileUpdateRequest request) {
         checkProfileUpdateRequest(request);
         Long userId = StpUtil.getLoginIdAsLong();
-        SysUser user = userMapper.selectByUserId(userId);
+        SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new AuthException("用户不存在");
         }
@@ -285,8 +286,8 @@ public class UserProfileApplicationService {
                 .phone(request.getPhone().trim())
                 .email(request.getEmail().trim())
                 .build();
-        userMapper.updateProfile(updateUser);
-        SysUser refreshedUser = userMapper.selectByUserId(userId);
+        updateUserProfile(updateUser);
+        SysUser refreshedUser = sysUserMapper.selectById(userId);
         LoginUser loginUser = LoginUser.from(refreshedUser);
         loginUser.setRoles(rbacApplicationService.getRoleCodes(userId));
         StpUtil.getSession().set(SaTokenConfig.SESSION_LOGIN_USER_KEY, loginUser);
@@ -300,14 +301,14 @@ public class UserProfileApplicationService {
     public void updatePassword(UserPasswordUpdateRequest request) {
         checkPasswordUpdateRequest(request);
         Long userId = StpUtil.getLoginIdAsLong();
-        SysUser user = userMapper.selectByUserId(userId);
+        SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new AuthException("用户不存在");
         }
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
             throw new AuthException("旧密码错误");
         }
-        userMapper.updatePassword(userId, passwordEncoder.encode(request.getNewPassword()));
+        updateUserPassword(userId, passwordEncoder.encode(request.getNewPassword()));
     }
 
     /**
@@ -318,11 +319,11 @@ public class UserProfileApplicationService {
      */
     public void adminResetPassword(Long userId, AdminPasswordResetRequest request) {
         checkResetPasswordRequest(request);
-        SysUser user = userMapper.selectByUserId(userId);
+        SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new AuthException("用户不存在");
         }
-        userMapper.updatePassword(userId, passwordEncoder.encode(request.getNewPassword()));
+        updateUserPassword(userId, passwordEncoder.encode(request.getNewPassword()));
     }
 
     /**
@@ -402,11 +403,11 @@ public class UserProfileApplicationService {
      * @param status 目标状态
      */
     public void adminUpdateStatus(Long userId, Integer status) {
-        SysUser user = userMapper.selectByUserId(userId);
+        SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new AuthException("用户不存在");
         }
-        userMapper.updateStatus(userId, status);
+        updateUserStatus(userId, status);
     }
 
     /**
@@ -415,11 +416,11 @@ public class UserProfileApplicationService {
      * @param userId 用户ID
      */
     public void adminBindNewApi(Long userId) {
-        SysUser user = userMapper.selectByUserId(userId);
+        SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new AuthException("用户不存在");
         }
-        UserNewApiBinding binding = bindingMapper.selectByUserId(userId);
+        UserNewApiBinding binding = selectBindingByUserId(userId);
         if (binding != null && binding.getNewApiUserId() != null) {
             throw new AuthException("用户已绑定 new-api");
         }
@@ -460,8 +461,8 @@ public class UserProfileApplicationService {
      */
     public AdminUserListPageVo adminListUsers(String username, String role, Integer status, int pageNo, int pageSize) {
         int offset = (pageNo - 1) * pageSize;
-        long total = userMapper.selectCountByCondition(username, role, status);
-        List<SysUser> users = userMapper.selectListByCondition(username, role, status, offset, pageSize);
+        long total = sysUserMapper.selectCountByCondition(username, role, status);
+        List<SysUser> users = sysUserMapper.selectListByCondition(username, role, status, offset, pageSize);
         List<AdminUserListItemVo> list = users.stream()
                 .map(this::buildAdminListItem)
                 .toList();
@@ -480,7 +481,7 @@ public class UserProfileApplicationService {
      * @return 管理员列表项
      */
     private AdminUserListItemVo buildAdminListItem(SysUser user) {
-        UserNewApiBinding binding = bindingMapper.selectByUserId(user.getUserId());
+        UserNewApiBinding binding = selectBindingByUserId(user.getUserId());
         boolean newApiBound = binding != null && binding.getNewApiUserId() != null;
         return AdminUserListItemVo.builder()
                 .userId(user.getUserId())
@@ -501,11 +502,11 @@ public class UserProfileApplicationService {
      * @return 用户详情
      */
     public AdminUserDetailVo adminGetUserDetail(Long userId) {
-        SysUser user = userMapper.selectByUserId(userId);
+        SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new AuthException("用户不存在");
         }
-        UserNewApiBinding binding = bindingMapper.selectByUserId(userId);
+        UserNewApiBinding binding = selectBindingByUserId(userId);
         boolean newApiBound = binding != null && binding.getNewApiUserId() != null;
 
         AdminUserDetailVo.AdminUserDetailVoBuilder builder = AdminUserDetailVo.builder()
@@ -559,11 +560,11 @@ public class UserProfileApplicationService {
             Long startTimestamp,
             Long endTimestamp,
             String modelName) {
-        SysUser user = userMapper.selectByUserId(userId);
+        SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new AuthException("用户不存在");
         }
-        UserNewApiBinding binding = bindingMapper.selectByUserId(userId);
+        UserNewApiBinding binding = selectBindingByUserId(userId);
         if (binding == null || binding.getNewApiUserId() == null) {
             return UserTokenRecordsVo.builder()
                     .page(pageNo != null ? pageNo : 1)
@@ -592,7 +593,7 @@ public class UserProfileApplicationService {
      * @return 可用模型列表
      */
     public List<String> adminGetModels(Long userId) {
-        SysUser user = userMapper.selectByUserId(userId);
+        SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new AuthException("用户不存在");
         }
@@ -613,7 +614,7 @@ public class UserProfileApplicationService {
             throw new AuthException("用户额度正在变更，请稍后重试");
         }
         try {
-            SysUser user = userMapper.selectByUserId(userId);
+            SysUser user = sysUserMapper.selectById(userId);
             checkUser(user);
             UserNewApiBinding binding = newApiBindingService.getBinding(userId);
             NewApiUserAcl.NewApiUserStatsData stats = newApiUserAcl.getUserStats(binding.getNewApiUserId(), null, null);
@@ -698,7 +699,7 @@ public class UserProfileApplicationService {
      * @param phone 手机号
      */
     private void checkPhoneAvailable(Long userId, String phone) {
-        SysUser exists = userMapper.selectByPhone(phone.trim());
+        SysUser exists = selectUserByPhone(phone.trim());
         if (exists != null && !exists.getUserId().equals(userId)) {
             throw new AuthException("手机号已存在");
         }
@@ -711,7 +712,7 @@ public class UserProfileApplicationService {
      * @param email 邮箱
      */
     private void checkEmailAvailable(Long userId, String email) {
-        SysUser exists = userMapper.selectByEmail(email.trim());
+        SysUser exists = selectUserByEmail(email.trim());
         if (exists != null && !exists.getUserId().equals(userId)) {
             throw new AuthException("邮箱已存在");
         }
@@ -725,18 +726,18 @@ public class UserProfileApplicationService {
      */
     private RegisterContext createPendingUser(UserCreateRequest request) {
         return transactionTemplate.execute(status -> {
-            SysUser exists = userMapper.selectByUsername(request.getUsername());
+            SysUser exists = selectUserByUsername(request.getUsername());
             if (exists != null) {
                 throw new AuthException("用户名已存在");
             }
             if (StringUtils.hasText(request.getPhone())) {
-                SysUser phoneExists = userMapper.selectByPhone(request.getPhone());
+                SysUser phoneExists = selectUserByPhone(request.getPhone());
                 if (phoneExists != null) {
                     throw new AuthException("手机号已存在");
                 }
             }
             if (StringUtils.hasText(request.getEmail())) {
-                SysUser emailExists = userMapper.selectByEmail(request.getEmail());
+                SysUser emailExists = selectUserByEmail(request.getEmail());
                 if (emailExists != null) {
                     throw new AuthException("邮箱已存在");
                 }
@@ -749,7 +750,7 @@ public class UserProfileApplicationService {
                     .email(request.getEmail())
                     .status(UserStatusEnum.DISABLE.getCode())
                     .build();
-            userMapper.insert(user);
+            sysUserMapper.insert(user);
             rbacApplicationService.assignDefaultUserRole(user.getUserId());
             UserNewApiBinding binding = UserNewApiBinding.builder()
                     .userId(user.getUserId())
@@ -775,19 +776,19 @@ public class UserProfileApplicationService {
         try {
             NewApiUserAcl.NewApiCreateUserData newApiUser = createNewApiUserWithRetry(context, request);
             transactionTemplate.executeWithoutResult(status -> {
-                bindingMapper.updateBinding(UserNewApiBinding.builder()
+                updateBinding(UserNewApiBinding.builder()
                         .id(context.getBindingId())
                         .newApiUserId(newApiUser.getUserId())
                         .newApiUserName(newApiUser.getUsername())
                         .newApiApiKey(newApiUser.getTokenKey())
                         .status(UserStatusEnum.ENABLE.getCode())
                         .build());
-                userMapper.updateStatus(context.getUserId(), UserStatusEnum.ENABLE.getCode());
+                updateUserStatus(context.getUserId(), UserStatusEnum.ENABLE.getCode());
                 insertBindingLog(context.getUserId(), context.getBindingId(), "CREATE_BINDING", true, "new-api用户创建成功");
             });
         } catch (RuntimeException exception) {
             transactionTemplate.executeWithoutResult(status -> {
-                bindingMapper.updateStatus(context.getBindingId(), UserStatusEnum.ERROR.getCode());
+                updateBindingStatus(context.getBindingId(), UserStatusEnum.ERROR.getCode());
                 insertBindingLog(context.getUserId(), context.getBindingId(), "SYNC_FAILED", false, exception.getMessage());
             });
             throw exception;
@@ -947,6 +948,117 @@ public class UserProfileApplicationService {
         } catch (ArithmeticException exception) {
             throw new AuthException("金额超过可支持范围");
         }
+    }
+
+    /**
+     * 根据用户名查询用户。
+     *
+     * @param username 用户名
+     * @return 系统用户
+     */
+    private SysUser selectUserByUsername(String username) {
+        return sysUserMapper.selectOne(Wrappers.<SysUser>lambdaQuery()
+                .eq(SysUser::getUsername, username)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * 根据手机号查询用户。
+     *
+     * @param phone 手机号
+     * @return 系统用户
+     */
+    private SysUser selectUserByPhone(String phone) {
+        return sysUserMapper.selectOne(Wrappers.<SysUser>lambdaQuery()
+                .eq(SysUser::getPhone, phone)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * 根据邮箱查询用户。
+     *
+     * @param email 邮箱
+     * @return 系统用户
+     */
+    private SysUser selectUserByEmail(String email) {
+        return sysUserMapper.selectOne(Wrappers.<SysUser>lambdaQuery()
+                .eq(SysUser::getEmail, email)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * 根据业务用户ID查询new-api绑定。
+     *
+     * @param userId 业务用户ID
+     * @return new-api绑定
+     */
+    private UserNewApiBinding selectBindingByUserId(Long userId) {
+        return bindingMapper.selectOne(Wrappers.<UserNewApiBinding>lambdaQuery()
+                .eq(UserNewApiBinding::getUserId, userId)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * 更新用户基本资料。
+     *
+     * @param user 用户基本资料
+     */
+    private void updateUserProfile(SysUser user) {
+        sysUserMapper.update(null, Wrappers.<SysUser>lambdaUpdate()
+                .set(SysUser::getNickname, user.getNickname())
+                .set(SysUser::getPhone, user.getPhone())
+                .set(SysUser::getEmail, user.getEmail())
+                .eq(SysUser::getUserId, user.getUserId()));
+    }
+
+    /**
+     * 更新用户密码。
+     *
+     * @param userId 用户ID
+     * @param password BCrypt加密后的密码
+     */
+    private void updateUserPassword(Long userId, String password) {
+        sysUserMapper.update(null, Wrappers.<SysUser>lambdaUpdate()
+                .set(SysUser::getPassword, password)
+                .eq(SysUser::getUserId, userId));
+    }
+
+    /**
+     * 更新用户状态。
+     *
+     * @param userId 用户ID
+     * @param status 用户状态
+     */
+    private void updateUserStatus(Long userId, Integer status) {
+        sysUserMapper.update(null, Wrappers.<SysUser>lambdaUpdate()
+                .set(SysUser::getStatus, status)
+                .eq(SysUser::getUserId, userId));
+    }
+
+    /**
+     * 更新new-api绑定。
+     *
+     * @param binding new-api绑定
+     */
+    private void updateBinding(UserNewApiBinding binding) {
+        bindingMapper.update(null, Wrappers.<UserNewApiBinding>lambdaUpdate()
+                .set(UserNewApiBinding::getNewApiUserId, binding.getNewApiUserId())
+                .set(UserNewApiBinding::getNewApiUserName, binding.getNewApiUserName())
+                .set(UserNewApiBinding::getNewApiApiKey, binding.getNewApiApiKey())
+                .set(UserNewApiBinding::getStatus, binding.getStatus())
+                .eq(UserNewApiBinding::getId, binding.getId()));
+    }
+
+    /**
+     * 更新new-api绑定状态。
+     *
+     * @param bindingId 绑定ID
+     * @param status 绑定状态
+     */
+    private void updateBindingStatus(Long bindingId, Integer status) {
+        bindingMapper.update(null, Wrappers.<UserNewApiBinding>lambdaUpdate()
+                .set(UserNewApiBinding::getStatus, status)
+                .eq(UserNewApiBinding::getId, bindingId));
     }
 
     /**

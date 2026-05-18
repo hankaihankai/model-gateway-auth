@@ -1,18 +1,17 @@
 package com.model.gateway.auth.config;
 
-import cn.dev33.satoken.context.SaHolder;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.jwt.SaJwtUtil;
 import cn.dev33.satoken.jwt.StpLogicJwtForMixin;
 import cn.dev33.satoken.session.SaSession;
 import cn.dev33.satoken.stp.StpLogic;
 import cn.dev33.satoken.stp.StpUtil;
+import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysUserMapper;
 import com.model.gateway.auth.shared.enums.UserStatusEnum;
 import com.model.gateway.auth.identity.domain.model.LoginUser;
-import com.model.gateway.auth.identity.domain.model.SysUser;
+import com.model.gateway.auth.system.domain.model.SysUser;
 import com.model.gateway.auth.shared.exception.AuthStatusException;
-import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
-import com.model.gateway.auth.rbac.application.RbacApplicationService;
+import com.model.gateway.auth.system.application.RbacApplicationService;
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,7 +38,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
     /**
      * 用户数据访问对象,SaInterceptor兜底查询SysUser时使用。
      */
-    private final UserMapper userMapper;
+    private final SysUserMapper sysUserMapper;
 
     /**
      * RBAC应用服务。
@@ -50,15 +49,15 @@ public class SaTokenConfig implements WebMvcConfigurer {
      * 创建Sa-Token配置。
      *
      * @param rsaSaJwtTemplate 自定义RS256 JWT模板
-     * @param userMapper 用户数据访问对象
+     * @param sysUserMapper 用户数据访问对象
      * @param rbacApplicationService RBAC应用服务
      */
     public SaTokenConfig(
             RsaSaJwtTemplate rsaSaJwtTemplate,
-            UserMapper userMapper,
+            SysUserMapper sysUserMapper,
             RbacApplicationService rbacApplicationService) {
         this.rsaSaJwtTemplate = rsaSaJwtTemplate;
-        this.userMapper = userMapper;
+        this.sysUserMapper = sysUserMapper;
         this.rbacApplicationService = rbacApplicationService;
     }
 
@@ -109,7 +108,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
             return;
         }
         Long userId = StpUtil.getLoginIdAsLong();
-        SysUser user = userMapper.selectByUserId(userId);
+        SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
             throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "用户不存在");
         }

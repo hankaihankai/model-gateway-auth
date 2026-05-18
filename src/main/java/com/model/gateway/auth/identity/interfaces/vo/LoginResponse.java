@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.model.gateway.auth.rbac.interfaces.vo.PermissionContextVo;
+import com.model.gateway.auth.system.interfaces.vo.PermissionContextVo;
 
 /**
  * 登录响应数据。

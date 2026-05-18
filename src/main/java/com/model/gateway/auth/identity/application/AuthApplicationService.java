@@ -1,19 +1,20 @@
 package com.model.gateway.auth.identity.application;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.stp.StpUtil;
 import com.model.gateway.auth.shared.constant.AuthConstants;
 import com.model.gateway.auth.shared.enums.UserStatusEnum;
 import com.model.gateway.auth.config.SaTokenConfig;
 import com.model.gateway.auth.identity.domain.model.LoginUser;
-import com.model.gateway.auth.identity.domain.model.SysUser;
+import com.model.gateway.auth.system.domain.model.SysUser;
 import com.model.gateway.auth.identity.interfaces.dto.LoginRequest;
-import com.model.gateway.auth.rbac.application.RbacApplicationService;
-import com.model.gateway.auth.rbac.interfaces.vo.PermissionContextVo;
+import com.model.gateway.auth.system.application.RbacApplicationService;
+import com.model.gateway.auth.system.interfaces.vo.PermissionContextVo;
 import com.model.gateway.auth.shared.exception.AuthException;
 import com.model.gateway.auth.identity.infrastructure.cache.GatewayCredentialCacheService;
 import com.model.gateway.auth.newapi.application.NewApiBindingApplicationService;
-import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
+import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysUserMapper;
 import com.model.gateway.auth.identity.interfaces.vo.LoginResponse;
 import com.model.gateway.auth.identity.interfaces.vo.UserInfoVo;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -29,7 +30,7 @@ public class AuthApplicationService {
     /**
      * 用户数据访问对象。
      */
-    private final UserMapper userMapper;
+    private final SysUserMapper sysUserMapper;
 
     /**
      * BCrypt密码编码器。
@@ -54,18 +55,18 @@ public class AuthApplicationService {
     /**
      * 创建认证业务服务实现。
      *
-     * @param userMapper 用户数据访问对象
+     * @param sysUserMapper 用户数据访问对象
      * @param passwordEncoder BCrypt密码编码器
      * @param newApiBindingService new-api绑定业务服务
      * @param gatewayCredentialCacheService 网关凭证缓存服务
      */
     public AuthApplicationService(
-            UserMapper userMapper,
+            SysUserMapper sysUserMapper,
             BCryptPasswordEncoder passwordEncoder,
             NewApiBindingApplicationService newApiBindingService,
             GatewayCredentialCacheService gatewayCredentialCacheService,
             RbacApplicationService rbacApplicationService) {
-        this.userMapper = userMapper;
+        this.sysUserMapper = sysUserMapper;
         this.passwordEncoder = passwordEncoder;
         this.newApiBindingService = newApiBindingService;
         this.gatewayCredentialCacheService = gatewayCredentialCacheService;
@@ -80,7 +81,9 @@ public class AuthApplicationService {
      */
     public LoginResponse login(LoginRequest request) {
         checkLoginRequest(request);
-        SysUser user = userMapper.selectByUsername(request.getUsername());
+        SysUser user = sysUserMapper.selectOne(Wrappers.<SysUser>lambdaQuery()
+                .eq(SysUser::getUsername, request.getUsername())
+                .last("LIMIT 1"));
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new AuthException("用户名或密码错误");
         }
@@ -115,7 +118,7 @@ public class AuthApplicationService {
     public LoginResponse current() {
         LoginUser loginUser = (LoginUser) StpUtil.getSession().get(SaTokenConfig.SESSION_LOGIN_USER_KEY);
         if (loginUser == null) {
-            SysUser user = userMapper.selectByUserId(StpUtil.getLoginIdAsLong());
+            SysUser user = sysUserMapper.selectById(StpUtil.getLoginIdAsLong());
             loginUser = LoginUser.from(user);
             loginUser.setRoles(rbacApplicationService.getRoleCodes(user.getUserId()));
             StpUtil.getSession().set(SaTokenConfig.SESSION_LOGIN_USER_KEY, loginUser);

@@ -2,14 +2,14 @@ package com.model.gateway.auth.identity.application;
 
 import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.stp.StpUtil;
+import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysUserMapper;
 import com.model.gateway.auth.shared.enums.UserStatusEnum;
 import com.model.gateway.auth.newapi.application.NewApiBindingApplicationService;
 import com.model.gateway.auth.identity.infrastructure.config.GatewayCredentialProperties;
 import com.model.gateway.auth.identity.domain.model.LoginUser;
-import com.model.gateway.auth.identity.domain.model.SysUser;
+import com.model.gateway.auth.system.domain.model.SysUser;
 import com.model.gateway.auth.identity.interfaces.dto.GatewayCredentialEnsureRequest;
 import com.model.gateway.auth.shared.exception.AuthStatusException;
-import com.model.gateway.auth.identity.infrastructure.persistence.mapper.UserMapper;
 import com.model.gateway.auth.shared.util.SecretFileUtils;
 import com.model.gateway.auth.identity.interfaces.vo.GatewayCredentialResponse;
 import org.springframework.http.HttpStatus;
@@ -35,7 +35,7 @@ public class GatewayCredentialApplicationService {
     /**
      * 用户数据访问对象。
      */
-    private final UserMapper userMapper;
+    private final SysUserMapper sysUserMapper;
 
     /**
      * new-api绑定业务服务。
@@ -46,15 +46,15 @@ public class GatewayCredentialApplicationService {
      * 创建APISIX网关凭证业务服务。
      *
      * @param credentialProperties 网关凭证配置属性
-     * @param userMapper 用户数据访问对象
+     * @param sysUserMapper 用户数据访问对象
      * @param newApiBindingService new-api绑定业务服务
      */
     public GatewayCredentialApplicationService(
             GatewayCredentialProperties credentialProperties,
-            UserMapper userMapper,
+            SysUserMapper sysUserMapper,
             NewApiBindingApplicationService newApiBindingService) {
         this.credentialProperties = credentialProperties;
-        this.userMapper = userMapper;
+        this.sysUserMapper = sysUserMapper;
         this.newApiBindingService = newApiBindingService;
     }
 
@@ -85,7 +85,7 @@ public class GatewayCredentialApplicationService {
             throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token用户不匹配");
         }
 
-        SysUser user = userMapper.selectByUserId(request.getUserId());
+        SysUser user = sysUserMapper.selectById(request.getUserId());
         if (user == null) {
             throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "用户不存在");
         }

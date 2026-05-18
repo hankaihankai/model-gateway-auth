@@ -1,5 +1,6 @@
 package com.model.gateway.auth.newapi.application;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.model.gateway.auth.shared.enums.UserStatusEnum;
 import com.model.gateway.auth.identity.domain.service.CredentialCryptoService;
 import com.model.gateway.auth.identity.infrastructure.cache.GatewayCredentialCacheService;
@@ -67,7 +68,7 @@ public class NewApiBindingApplicationService {
      */
     public GatewayCredentialResponse ensureCredential(LoginUser user) {
         checkUser(user);
-        UserNewApiBinding binding = bindingMapper.selectByUserId(user.getUserId());
+        UserNewApiBinding binding = selectBindingByUserId(user.getUserId());
         checkBinding(binding);
 
         Long now = Instant.now().getEpochSecond();
@@ -99,9 +100,21 @@ public class NewApiBindingApplicationService {
      * @return new-api绑定
      */
     public UserNewApiBinding getBinding(Long userId) {
-        UserNewApiBinding binding = bindingMapper.selectByUserId(userId);
+        UserNewApiBinding binding = selectBindingByUserId(userId);
         checkBinding(binding);
         return binding;
+    }
+
+    /**
+     * 根据业务用户ID查询new-api绑定。
+     *
+     * @param userId 业务用户ID
+     * @return new-api绑定
+     */
+    private UserNewApiBinding selectBindingByUserId(Long userId) {
+        return bindingMapper.selectOne(Wrappers.<UserNewApiBinding>lambdaQuery()
+                .eq(UserNewApiBinding::getUserId, userId)
+                .last("LIMIT 1"));
     }
 
     /**

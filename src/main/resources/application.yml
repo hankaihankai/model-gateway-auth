@@ -25,7 +25,7 @@ spring:
       database: ${REDIS_DATABASE:0}
       timeout: 3s
 
-mybatis:
+mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
 
@@ -51,12 +51,12 @@ gateway:
     issuer: model-gateway-auth
     audience: apisix-llm-gateway
     expire-seconds: 7200
-    private-key-file: ${GATEWAY_JWT_PRIVATE_KEY_FILE:}
-    public-key-file: ${GATEWAY_JWT_PUBLIC_KEY_FILE:}
+    private-key-file: ${GATEWAY_JWT_PRIVATE_KEY_FILE:D:\Project\model-gateway-auth\cert\gateway-jwt-private.pem}
+    public-key-file: ${GATEWAY_JWT_PUBLIC_KEY_FILE:D:\Project\model-gateway-auth\cert\gateway-jwt-public.pem}
   credential:
     key-id: ${GATEWAY_CREDENTIAL_KEY_ID:main}
-    aes-key-file: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:}
-    gateway-secret-file: ${APISIX_GATEWAY_SECRET_FILE:}
+    aes-key-file: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:D:\Project\model-gateway-auth\cert\gateway-credential-aes.key}
+    gateway-secret-file: ${APISIX_GATEWAY_SECRET_FILE:D:\Project\model-gateway-auth\cert\apisix-gateway-secret.txt}
 
 email:
   qq:

@@ -1,7 +1,7 @@
 package com.model.gateway.auth.config;
 
 import cn.dev33.satoken.stp.StpInterface;
-import com.model.gateway.auth.rbac.application.RbacApplicationService;
+import com.model.gateway.auth.system.application.RbacApplicationService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

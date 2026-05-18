@@ -1,5 +1,7 @@
 package com.model.gateway.auth.identity.domain.model;
 
+import com.model.gateway.auth.system.domain.model.SysUser;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
