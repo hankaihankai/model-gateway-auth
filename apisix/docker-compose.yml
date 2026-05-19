@@ -40,9 +40,9 @@ services:
     environment:
       APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY:-api-admin-key-1234567654321}
       GATEWAY_JWT_PUBLIC_KEY_FILE: ${GATEWAY_JWT_PUBLIC_KEY_FILE:-/cert/gateway-jwt-public.pem}
-      APISIX_GATEWAY_SECRET_FILE: ${APISIX_GATEWAY_SECRET_FILE:-/cert/apisix-gateway-secret.txt}
+      APISIX_GATEWAY_SECRET: ${APISIX_GATEWAY_SECRET}
       APISIX_AES_KEY_ID: ${GATEWAY_CREDENTIAL_KEY_ID:-main}
-      GATEWAY_CREDENTIAL_AES_KEY_FILE: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:-/cert/gateway-credential-aes.key}
+      GATEWAY_CREDENTIAL_AES_KEY: ${GATEWAY_CREDENTIAL_AES_KEY}
       APISIX_REDIS_URL: ${AUTH_REDIS_URL:-redis://:123456@new-api-redis:6379/0}
       APISIX_CREDENTIAL_ENSURE_URL: ${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8188/api/gateway/new-api-credential/ensure}
       AUTH_API_NODE: ${AUTH_API_NODE:-host.docker.internal:8188}
@@ -54,8 +54,6 @@ services:
       - |
         set -eu
         APISIX_JWT_PUBLIC_KEY="$$(awk '{printf "%s\\n", $$0}' "$$GATEWAY_JWT_PUBLIC_KEY_FILE")"
-        APISIX_AES_KEY="$$(tr -d '\r\n' < "$$GATEWAY_CREDENTIAL_AES_KEY_FILE")"
-        APISIX_GATEWAY_SECRET="$$(tr -d '\r\n' < "$$APISIX_GATEWAY_SECRET_FILE")"
         cat > /tmp/chat-route.json <<EOF
         {
           "name": "model-gateway-chat-completions",
@@ -68,7 +66,7 @@ services:
               "credential_ensure_url": "$$APISIX_CREDENTIAL_ENSURE_URL",
               "gateway_secret": "$$APISIX_GATEWAY_SECRET",
               "aes_keys": {
-                "$$APISIX_AES_KEY_ID": "$$APISIX_AES_KEY"
+                "$$APISIX_AES_KEY_ID": "$$GATEWAY_CREDENTIAL_AES_KEY"
               }
             }
           },

@@ -10,7 +10,6 @@ import com.model.gateway.auth.identity.domain.model.LoginUser;
 import com.model.gateway.auth.system.domain.model.SysUser;
 import com.model.gateway.auth.identity.interfaces.dto.GatewayCredentialEnsureRequest;
 import com.model.gateway.auth.shared.exception.AuthStatusException;
-import com.model.gateway.auth.shared.util.SecretFileUtils;
 import com.model.gateway.auth.identity.interfaces.vo.GatewayCredentialResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -115,8 +114,10 @@ public class GatewayCredentialApplicationService {
      * @param gatewaySecret APISIX回源密钥
      */
     private void checkGatewaySecret(String gatewaySecret) {
-        String configuredSecret = SecretFileUtils.readRequiredTrimmed(credentialProperties.getGatewaySecretFile(), "APISIX回源密钥");
-        if (!configuredSecret.equals(gatewaySecret)) {
+        if (!StringUtils.hasText(credentialProperties.getGatewaySecret())) {
+            throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "APISIX回源密钥未配置");
+        }
+        if (!credentialProperties.getGatewaySecret().trim().equals(gatewaySecret)) {
             throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "APISIX回源密钥错误");
         }
     }

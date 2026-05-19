@@ -53,14 +53,14 @@ echo "  ✓ apisix/docker-compose.yml 已存在"
 echo "  ✓ apisix/apisix_conf/config.yaml 已存在"
 echo "  ✓ apisix/apisix_plugins/model-gateway-auth.lua 已存在"
 
-# 2. 检查并同步密钥文件
+# 2. 检查并同步JWT公钥文件
 echo ""
-echo "[2/7] 检查密钥文件..."
+echo "[2/7] 检查JWT公钥文件..."
 
 mkdir -p "$APISIX_CERT_DIR"
 
 missing_certs=false
-for file in gateway-jwt-public.pem gateway-credential-aes.key apisix-gateway-secret.txt; do
+for file in gateway-jwt-public.pem; do
   if [[ ! -f "$APISIX_CERT_DIR/$file" ]]; then
     missing_certs=true
     break
@@ -68,11 +68,11 @@ for file in gateway-jwt-public.pem gateway-credential-aes.key apisix-gateway-sec
 done
 
 if [[ "$missing_certs" == true ]]; then
-  echo "  ! apisix/cert/ 中缺少密钥文件"
+  echo "  ! apisix/cert/ 中缺少JWT公钥文件"
 
   # 尝试从根目录 cert/ 复制
   if [[ -d "$CERT_DIR" ]]; then
-    for file in gateway-jwt-public.pem gateway-credential-aes.key apisix-gateway-secret.txt; do
+    for file in gateway-jwt-public.pem; do
       if [[ -f "$CERT_DIR/$file" && ! -f "$APISIX_CERT_DIR/$file" ]]; then
         cp "$CERT_DIR/$file" "$APISIX_CERT_DIR/$file"
         echo "  ✓ 从 cert/$file 复制到 apisix/cert/$file"
@@ -82,7 +82,7 @@ if [[ "$missing_certs" == true ]]; then
 
   # 再次检查
   still_missing=false
-  for file in gateway-jwt-public.pem gateway-credential-aes.key apisix-gateway-secret.txt; do
+  for file in gateway-jwt-public.pem; do
     if [[ ! -f "$APISIX_CERT_DIR/$file" ]]; then
       still_missing=true
       echo "  ✗ 仍缺失: apisix/cert/$file"
@@ -94,15 +94,11 @@ if [[ "$missing_certs" == true ]]; then
     echo "请先生成密钥（在项目根目录执行）:"
     echo "  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out cert/gateway-jwt-private.pem"
     echo "  openssl rsa -pubout -in cert/gateway-jwt-private.pem -out cert/gateway-jwt-public.pem"
-    echo "  openssl rand -base64 32 > cert/gateway-credential-aes.key"
-    echo "  openssl rand -base64 32 > cert/apisix-gateway-secret.txt"
     echo "  cp cert/gateway-jwt-public.pem apisix/cert/"
-    echo "  cp cert/gateway-credential-aes.key apisix/cert/"
-    echo "  cp cert/apisix-gateway-secret.txt apisix/cert/"
     exit 1
   fi
 else
-  echo "  ✓ apisix/cert/ 密钥文件完整"
+  echo "  ✓ apisix/cert/ JWT公钥文件已存在"
 fi
 
 # 3. 检查 Admin Key 一致性
@@ -148,6 +144,18 @@ fi
 
 if [[ "$AUTH_REDIS_URL" != redis://* && "$AUTH_REDIS_URL" != rediss://* ]]; then
   echo "  ✗ AUTH_REDIS_URL 格式不正确，应类似 redis://:password@host:6379/0"
+  exit 1
+fi
+
+GATEWAY_CREDENTIAL_AES_KEY=$(grep -E '^GATEWAY_CREDENTIAL_AES_KEY=' "$ENV_FILE" | cut -d= -f2- || true)
+if [[ -z "$GATEWAY_CREDENTIAL_AES_KEY" ]]; then
+  echo "  ✗ GATEWAY_CREDENTIAL_AES_KEY 未配置，请在 apisix/.env 中手动配置 AES 密钥"
+  exit 1
+fi
+
+APISIX_GATEWAY_SECRET=$(grep -E '^APISIX_GATEWAY_SECRET=' "$ENV_FILE" | cut -d= -f2- || true)
+if [[ -z "$APISIX_GATEWAY_SECRET" ]]; then
+  echo "  ✗ APISIX_GATEWAY_SECRET 未配置，请在 apisix/.env 中手动配置 APISIX 回源密钥"
   exit 1
 fi
 

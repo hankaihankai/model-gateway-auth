@@ -18,12 +18,12 @@ public class GatewayCredentialProperties {
     private String keyId;
 
     /**
-     * Base64编码的32字节AES密钥文件路径。
+     * Base64编码的32字节AES密钥。
      */
-    private String aesKeyFile;
+    private String aesKey;
 
     /**
-     * APISIX回源密钥文件路径。
+     * APISIX回源密钥。
      */
-    private String gatewaySecretFile;
+    private String gatewaySecret;
 }

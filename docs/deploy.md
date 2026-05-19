@@ -89,8 +89,8 @@ AUTH_PORT=8188
 GATEWAY_JWT_PRIVATE_KEY_FILE=/app/cert/gateway-jwt-private.pem
 GATEWAY_JWT_PUBLIC_KEY_FILE=/app/cert/gateway-jwt-public.pem
 GATEWAY_CREDENTIAL_KEY_ID=main
-GATEWAY_CREDENTIAL_AES_KEY_FILE=/app/cert/gateway-credential-aes.key
-APISIX_GATEWAY_SECRET_FILE=/app/cert/apisix-gateway-secret.txt
+GATEWAY_CREDENTIAL_AES_KEY=替换为openssl rand -base64 32生成的值
+APISIX_GATEWAY_SECRET=替换为openssl rand -base64 32生成的值
 ```
 
 ## 4. 配置 `apisix/.env`
@@ -113,15 +113,16 @@ AUTH_REDIS_URL=redis://:123456@new-api-redis:6379/0
 
 GATEWAY_JWT_PUBLIC_KEY_FILE=/cert/gateway-jwt-public.pem
 GATEWAY_CREDENTIAL_KEY_ID=main
-GATEWAY_CREDENTIAL_AES_KEY_FILE=/cert/gateway-credential-aes.key
-APISIX_GATEWAY_SECRET_FILE=/cert/apisix-gateway-secret.txt
+GATEWAY_CREDENTIAL_AES_KEY=替换为根目录.env中相同的AES密钥
+APISIX_GATEWAY_SECRET=替换为根目录.env中相同的APISIX回源密钥
 ```
 
 注意：
 
 - `APISIX_ADMIN_KEY` 必须和 `apisix/apisix_conf/config.yaml` 中的 Admin Key 保持一致。
 - APISIX 不需要 JWT 私钥，不要把私钥文件复制到 `apisix/cert/`。
-- `GATEWAY_JWT_PUBLIC_KEY_FILE`、`GATEWAY_CREDENTIAL_AES_KEY_FILE`、`APISIX_GATEWAY_SECRET_FILE` 指向 APISIX 容器内的文件路径。
+- `GATEWAY_JWT_PUBLIC_KEY_FILE` 指向 APISIX 容器内的 JWT 公钥文件路径。
+- `GATEWAY_CREDENTIAL_AES_KEY` 和 `APISIX_GATEWAY_SECRET` 必须和认证服务根目录 `.env` 中的值保持一致。
 - `AUTH_API_NODE` 是 APISIX 转发认证服务 API 的上游节点。
 - `AUTH_API_ROUTE_PREFIX` 是认证服务项目对外路由前缀，默认 `/model-gateway-auth`，APISIX 会去掉此前缀后原样转发到认证服务。
 - 同机双 Compose 默认使用 `host.docker.internal` 回调认证服务；分开部署时把 `APISIX_CREDENTIAL_ENSURE_URL` 改成 APISIX 能访问到的认证服务地址。
@@ -143,29 +144,33 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out cert/gateway-j
 openssl rsa -pubout -in cert/gateway-jwt-private.pem -out cert/gateway-jwt-public.pem
 ```
 
-生成 AES 密钥和 APISIX 回源密钥：
+生成 AES 密钥和 APISIX 回源密钥，并写入根目录 `.env` 与 `apisix/.env`：
 
 ```bash
-openssl rand -base64 32 > cert/gateway-credential-aes.key
-openssl rand -base64 32 > cert/apisix-gateway-secret.txt
+GATEWAY_CREDENTIAL_AES_KEY=$(openssl rand -base64 32)
+APISIX_GATEWAY_SECRET=$(openssl rand -base64 32)
+
+echo "GATEWAY_CREDENTIAL_AES_KEY=${GATEWAY_CREDENTIAL_AES_KEY}" >> .env
+echo "APISIX_GATEWAY_SECRET=${APISIX_GATEWAY_SECRET}" >> .env
+echo "GATEWAY_CREDENTIAL_AES_KEY=${GATEWAY_CREDENTIAL_AES_KEY}" >> apisix/.env
+echo "APISIX_GATEWAY_SECRET=${APISIX_GATEWAY_SECRET}" >> apisix/.env
 ```
 
-把 APISIX 需要的非私钥文件复制到 `apisix/cert/`：
+把 APISIX 需要的 JWT 公钥复制到 `apisix/cert/`：
 
 ```bash
 cp cert/gateway-jwt-public.pem apisix/cert/gateway-jwt-public.pem
-cp cert/gateway-credential-aes.key apisix/cert/gateway-credential-aes.key
-cp cert/apisix-gateway-secret.txt apisix/cert/apisix-gateway-secret.txt
 ```
 
-检查密钥文件存在：
+检查 JWT 密钥文件和变量存在：
 
 ```bash
 ls -l cert
 ls -l apisix/cert
+grep -E '^(GATEWAY_CREDENTIAL_AES_KEY|APISIX_GATEWAY_SECRET)=' .env apisix/.env
 ```
 
-注意：`cert/` 和 `apisix/cert/` 里的真实密钥文件不提交到 Git。
+注意：`cert/` 和 `apisix/cert/` 里的真实 JWT 密钥文件不提交到 Git。`.env` 和 `apisix/.env` 中包含 AES 密钥和 APISIX 回源密钥，发布前需要确认是否允许提交真实值。
 
 ## 6. 启动认证服务
 
@@ -311,10 +316,10 @@ AUTH_REDIS_URL=$(grep -E '^AUTH_REDIS_URL=' .env | cut -d= -f2-)
 AUTH_REDIS_URL=${AUTH_REDIS_URL:-redis://:123456@new-api-redis:6379/0}
 GATEWAY_CREDENTIAL_KEY_ID=$(grep -E '^GATEWAY_CREDENTIAL_KEY_ID=' .env | cut -d= -f2-)
 GATEWAY_CREDENTIAL_KEY_ID=${GATEWAY_CREDENTIAL_KEY_ID:-main}
+GATEWAY_CREDENTIAL_AES_KEY=$(grep -E '^GATEWAY_CREDENTIAL_AES_KEY=' .env | cut -d= -f2-)
+APISIX_GATEWAY_SECRET=$(grep -E '^APISIX_GATEWAY_SECRET=' .env | cut -d= -f2-)
 
 APISIX_JWT_PUBLIC_KEY=$(awk '{printf "%s\\n", $0}' cert/gateway-jwt-public.pem)
-APISIX_AES_KEY=$(tr -d '\r\n' < cert/gateway-credential-aes.key)
-APISIX_GATEWAY_SECRET=$(tr -d '\r\n' < cert/apisix-gateway-secret.txt)
 
 cat > /tmp/model-gateway-chat-route.json <<EOF
 {
@@ -328,7 +333,7 @@ cat > /tmp/model-gateway-chat-route.json <<EOF
       "credential_ensure_url": "${APISIX_CREDENTIAL_ENSURE_URL}",
       "gateway_secret": "${APISIX_GATEWAY_SECRET}",
       "aes_keys": {
-        "${GATEWAY_CREDENTIAL_KEY_ID}": "${APISIX_AES_KEY}"
+        "${GATEWAY_CREDENTIAL_KEY_ID}": "${GATEWAY_CREDENTIAL_AES_KEY}"
       }
     }
   },
@@ -512,9 +517,9 @@ docker compose --env-file .env up -d
 
 如果 APISIX 和认证服务部署在不同机器：
 
-- 根目录 `.env` 保持认证服务自己的 MySQL URL、Redis URL 和密钥文件路径。
+- 根目录 `.env` 保持认证服务自己的 MySQL URL、Redis URL、JWT 文件路径和网关密钥变量值。
 - 认证服务部署目录保留完整 `cert/`，其中包含 JWT 私钥。
-- APISIX 部署目录只需要 `apisix/cert/` 中的 JWT 公钥、AES key 和回源密钥，不需要 JWT 私钥。
+- APISIX 部署目录只需要 `apisix/cert/` 中的 JWT 公钥，不需要 JWT 私钥。
 - `apisix/.env` 中的 `AUTH_API_NODE` 改成 APISIX 能访问的认证服务节点，例如 `10.0.0.12:8188`。
 - `apisix/.env` 中的 `APISIX_CREDENTIAL_ENSURE_URL` 改成 APISIX 能访问的认证服务地址，例如：
 
@@ -523,7 +528,8 @@ APISIX_CREDENTIAL_ENSURE_URL=http://10.0.0.12:8188/api/gateway/new-api-credentia
 ```
 
 - `apisix/.env` 中的 `AUTH_REDIS_URL` 改成 APISIX 能访问的 Redis 地址。
-- `apisix/cert/gateway-jwt-public.pem`、`apisix/cert/gateway-credential-aes.key`、`apisix/cert/apisix-gateway-secret.txt` 仍然必须和认证服务侧对应文件保持一致。
+- `apisix/cert/gateway-jwt-public.pem` 必须和认证服务侧 JWT 公钥保持一致。
+- `apisix/.env` 中的 `GATEWAY_CREDENTIAL_AES_KEY`、`APISIX_GATEWAY_SECRET` 必须和认证服务根目录 `.env` 中的值保持一致。
 
 ## 14. 常见问题
 
@@ -550,7 +556,8 @@ docker compose --env-file .env logs apisix-init
 
 - `APISIX_ADMIN_KEY` 和 `apisix/apisix_conf/config.yaml` 不一致。
 - APISIX 还没启动完成。
-- `apisix/cert/` 中缺少 JWT 公钥、AES key 或回源密钥文件。
+- `apisix/cert/` 中缺少 JWT 公钥文件。
+- `apisix/.env` 中缺少 `GATEWAY_CREDENTIAL_AES_KEY` 或 `APISIX_GATEWAY_SECRET`。
 - `docker.m.daocloud.io/curlimages/curl:8.11.1` 镜像暂时无法拉取。
 
 可以重新执行初始化服务：
@@ -577,10 +584,10 @@ APISIX_CREDENTIAL_ENSURE_URL=http://host.docker.internal:8188/api/gateway/new-ap
 
 ### APISIX 返回凭证解密失败
 
-确认根目录 `cert/` 和 `apisix/cert/` 使用同一个 AES key：
+确认根目录 `.env` 和 `apisix/.env` 使用同一个 AES key：
 
 ```bash
-diff cert/gateway-credential-aes.key apisix/cert/gateway-credential-aes.key
+grep '^GATEWAY_CREDENTIAL_AES_KEY=' .env apisix/.env
 ```
 
 ### Java 服务提示 JWT 私钥无效

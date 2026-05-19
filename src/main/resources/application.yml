@@ -55,8 +55,8 @@ gateway:
     public-key-file: ${GATEWAY_JWT_PUBLIC_KEY_FILE:D:\Project\model-gateway-auth\cert\gateway-jwt-public.pem}
   credential:
     key-id: ${GATEWAY_CREDENTIAL_KEY_ID:main}
-    aes-key-file: ${GATEWAY_CREDENTIAL_AES_KEY_FILE:D:\Project\model-gateway-auth\cert\gateway-credential-aes.key}
-    gateway-secret-file: ${APISIX_GATEWAY_SECRET_FILE:D:\Project\model-gateway-auth\cert\apisix-gateway-secret.txt}
+    aes-key: ${GATEWAY_CREDENTIAL_AES_KEY:}
+    gateway-secret: ${APISIX_GATEWAY_SECRET:}
 
 email:
   qq:

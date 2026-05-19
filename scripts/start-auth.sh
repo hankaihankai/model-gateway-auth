@@ -35,22 +35,20 @@ fi
 echo "  ✓ .env 已存在"
 echo "  ✓ docker-compose.yml 已存在"
 
-# 2. 检查并生成密钥
+# 2. 检查并生成JWT密钥
 echo ""
-echo "[2/6] 检查密钥文件..."
+echo "[2/6] 检查JWT密钥文件..."
 
 mkdir -p "$CERT_DIR"
 
 need_generate=false
 if [[ ! -f "$CERT_DIR/gateway-jwt-private.pem" ]] || \
-   [[ ! -f "$CERT_DIR/gateway-jwt-public.pem" ]] || \
-   [[ ! -f "$CERT_DIR/gateway-credential-aes.key" ]] || \
-   [[ ! -f "$CERT_DIR/apisix-gateway-secret.txt" ]]; then
+   [[ ! -f "$CERT_DIR/gateway-jwt-public.pem" ]]; then
   need_generate=true
 fi
 
 if [[ "$need_generate" == true ]]; then
-  echo "  ! 密钥文件缺失，正在生成..."
+  echo "  ! JWT密钥文件缺失，正在生成..."
 
   if [[ ! -f "$CERT_DIR/gateway-jwt-private.pem" ]]; then
     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$CERT_DIR/gateway-jwt-private.pem"
@@ -62,20 +60,10 @@ if [[ "$need_generate" == true ]]; then
     echo "  ✓ 生成 JWT 公钥"
   fi
 
-  if [[ ! -f "$CERT_DIR/gateway-credential-aes.key" ]]; then
-    openssl rand -base64 32 > "$CERT_DIR/gateway-credential-aes.key"
-    echo "  ✓ 生成 AES 密钥"
-  fi
-
-  if [[ ! -f "$CERT_DIR/apisix-gateway-secret.txt" ]]; then
-    openssl rand -base64 32 > "$CERT_DIR/apisix-gateway-secret.txt"
-    echo "  ✓ 生成 APISIX 回源密钥"
-  fi
-
   echo ""
-  echo "  ⚠ 密钥已自动生成，请妥善备份 cert/ 目录下的密钥文件！"
+  echo "  ⚠ JWT密钥已自动生成，请妥善备份 cert/ 目录下的密钥文件！"
 else
-  echo "  ✓ 所有密钥文件已存在"
+  echo "  ✓ JWT密钥文件已存在"
 fi
 
 # 3. 检查 Docker 网络
@@ -210,8 +198,8 @@ fi
 GATEWAY_JWT_PRIVATE_KEY_FILE=$(grep -E '^GATEWAY_JWT_PRIVATE_KEY_FILE=' "$ENV_FILE" | cut -d= -f2- || true)
 GATEWAY_JWT_PUBLIC_KEY_FILE=$(grep -E '^GATEWAY_JWT_PUBLIC_KEY_FILE=' "$ENV_FILE" | cut -d= -f2- || true)
 GATEWAY_CREDENTIAL_KEY_ID=$(grep -E '^GATEWAY_CREDENTIAL_KEY_ID=' "$ENV_FILE" | cut -d= -f2- || true)
-GATEWAY_CREDENTIAL_AES_KEY_FILE=$(grep -E '^GATEWAY_CREDENTIAL_AES_KEY_FILE=' "$ENV_FILE" | cut -d= -f2- || true)
-APISIX_GATEWAY_SECRET_FILE=$(grep -E '^APISIX_GATEWAY_SECRET_FILE=' "$ENV_FILE" | cut -d= -f2- || true)
+GATEWAY_CREDENTIAL_AES_KEY=$(grep -E '^GATEWAY_CREDENTIAL_AES_KEY=' "$ENV_FILE" | cut -d= -f2- || true)
+APISIX_GATEWAY_SECRET=$(grep -E '^APISIX_GATEWAY_SECRET=' "$ENV_FILE" | cut -d= -f2- || true)
 
 if [[ -z "$GATEWAY_JWT_PRIVATE_KEY_FILE" ]]; then
   echo "  ✗ GATEWAY_JWT_PRIVATE_KEY_FILE 未配置，请在 .env 中手动配置 JWT 私钥文件路径"
@@ -228,13 +216,13 @@ if [[ -z "$GATEWAY_CREDENTIAL_KEY_ID" ]]; then
   exit 1
 fi
 
-if [[ -z "$GATEWAY_CREDENTIAL_AES_KEY_FILE" ]]; then
-  echo "  ✗ GATEWAY_CREDENTIAL_AES_KEY_FILE 未配置，请在 .env 中手动配置 AES 密钥文件路径"
+if [[ -z "$GATEWAY_CREDENTIAL_AES_KEY" ]]; then
+  echo "  ✗ GATEWAY_CREDENTIAL_AES_KEY 未配置，请在 .env 中手动配置 AES 密钥"
   exit 1
 fi
 
-if [[ -z "$APISIX_GATEWAY_SECRET_FILE" ]]; then
-  echo "  ✗ APISIX_GATEWAY_SECRET_FILE 未配置，请在 .env 中手动配置 APISIX 回源密钥文件路径"
+if [[ -z "$APISIX_GATEWAY_SECRET" ]]; then
+  echo "  ✗ APISIX_GATEWAY_SECRET 未配置，请在 .env 中手动配置 APISIX 回源密钥"
   exit 1
 fi
 
