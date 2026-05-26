@@ -38,6 +38,9 @@ local schema = {
         redis_keepalive_timeout = {type = "integer", default = 60000, minimum = 1},
         redis_keepalive_pool = {type = "integer", default = 100, minimum = 1},
         credential_ensure_url = {type = "string", minLength = 1},
+        permission_authorize_url = {type = "string", minLength = 1},
+        app_code = {type = "string", minLength = 1},
+        permission_path_prefix_to_strip = {type = "string"},
         gateway_secret = {type = "string", minLength = 1},
         http_timeout = {type = "integer", default = 1500, minimum = 1},
         aes_keys = {
@@ -49,6 +52,8 @@ local schema = {
     required = {
         "jwt_public_key",
         "credential_ensure_url",
+        "permission_authorize_url",
+        "app_code",
         "gateway_secret",
         "aes_keys",
     },
@@ -176,6 +181,79 @@ local function read_redis_credential(conf, user_id)
     end
 
     return credential
+end
+
+-- 构建应用内部鉴权路径。
+local function build_permission_path(conf, ctx)
+    local path = ctx.var.uri
+    local prefix = conf.permission_path_prefix_to_strip
+    if prefix and prefix ~= "" and str_sub(path, 1, #prefix) == prefix then
+        path = str_sub(path, #prefix + 1)
+        if path == "" then
+            return "/"
+        end
+        if str_sub(path, 1, 1) ~= "/" then
+            return "/" .. path
+        end
+    end
+    return path
+end
+
+-- 调用用户系统校验应用API权限。
+local function authorize_app_permission(conf, ctx, token, user_id)
+    local httpc = http.new()
+    httpc:set_timeout(conf.http_timeout)
+
+    local body = core.json.encode({
+        userId = user_id,
+        appCode = conf.app_code,
+        method = ctx.var.request_method,
+        path = build_permission_path(conf, ctx),
+        requestId = ctx.var.request_id,
+    })
+
+    local res, err = httpc:request_uri(conf.permission_authorize_url, {
+        method = "POST",
+        body = body,
+        headers = {
+            ["Content-Type"] = "application/json",
+            ["X-Gateway-Secret"] = conf.gateway_secret,
+            ["Authorization"] = "Bearer " .. token,
+        },
+        keepalive = true,
+    })
+
+    if not res then
+        core.log.error("permission authorize request failed: ", err)
+        return nil, 503, "权限服务暂不可用"
+    end
+
+    if res.status < 200 or res.status >= 300 then
+        core.log.warn("permission authorize response status: ", res.status)
+        if res.status == 401 or res.status == 403 then
+            return nil, res.status, "Token无效或无权限"
+        end
+        return nil, 503, "权限服务暂不可用"
+    end
+
+    local decoded, decode_err = core.json.decode(res.body)
+    if not decoded then
+        core.log.error("permission authorize response decode failed: ", decode_err)
+        return nil, 503, "权限服务响应无效"
+    end
+
+    if decoded.code and decoded.code ~= 0 and decoded.code ~= 200 then
+        core.log.warn("permission authorize business failed: ", decoded.code)
+        local status = decoded.code == 401 and 401 or 403
+        return nil, status, decoded.message or "无应用接口权限"
+    end
+
+    local data = decoded.data or decoded
+    if not data.allowed then
+        return nil, 403, "无应用接口权限"
+    end
+
+    return data
 end
 
 -- 调用用户系统补齐凭证。
@@ -413,6 +491,16 @@ function _M.rewrite(conf, ctx)
     if not redis_conf then
         core.log.error("redis config invalid: ", redis_conf_err)
         return reject(503, "凭证缓存暂不可用")
+    end
+
+    local permission, permission_status, permission_message = authorize_app_permission(
+        conf,
+        ctx,
+        token,
+        jwt_info.user_id
+    )
+    if not permission then
+        return reject(permission_status, permission_message)
     end
 
     local credential, cache_state = read_redis_credential(redis_conf, jwt_info.user_id)

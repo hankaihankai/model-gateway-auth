@@ -1,7 +1,9 @@
 package com.model.gateway.auth.system.application;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.model.gateway.auth.system.domain.model.SysApp;
 import com.model.gateway.auth.system.domain.model.SysUser;
+import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysAppMapper;
 import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysUserMapper;
 import com.model.gateway.auth.system.domain.model.SysApiPermission;
 import com.model.gateway.auth.system.domain.model.SysMenu;
@@ -15,6 +17,7 @@ import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysRoleAp
 import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysRoleMapper;
 import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysRoleMenuMapper;
 import com.model.gateway.auth.system.infrastructure.persistence.mapper.SysUserRoleMapper;
+import com.model.gateway.auth.system.interfaces.dto.AppSaveRequest;
 import com.model.gateway.auth.system.interfaces.dto.ApiPermissionSaveRequest;
 import com.model.gateway.auth.system.interfaces.dto.MenuSaveRequest;
 import com.model.gateway.auth.system.interfaces.dto.RoleGrantRequest;
@@ -23,16 +26,19 @@ import com.model.gateway.auth.system.interfaces.dto.UserRoleUpdateRequest;
 import com.model.gateway.auth.system.interfaces.vo.MenuTreeVo;
 import com.model.gateway.auth.system.interfaces.vo.PermissionContextVo;
 import com.model.gateway.auth.system.interfaces.vo.RoleGrantVo;
+import com.model.gateway.auth.system.interfaces.vo.SysAppVo;
 import com.model.gateway.auth.shared.enums.UserStatusEnum;
 import com.model.gateway.auth.shared.exception.AuthException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -50,6 +56,21 @@ public class RbacApplicationService {
      * 菜单根节点父ID。
      */
     private static final long ROOT_PARENT_ID = 0L;
+
+    /**
+     * 全部HTTP方法通配符。
+     */
+    private static final String ALL_METHODS = "*";
+
+    /**
+     * 路径匹配器。
+     */
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
+
+    /**
+     * 系统应用数据访问对象。
+     */
+    private final SysAppMapper appMapper;
 
     /**
      * 系统角色数据访问对象。
@@ -94,6 +115,7 @@ public class RbacApplicationService {
     /**
      * 创建RBAC应用服务。
      *
+     * @param appMapper 系统应用数据访问对象
      * @param roleMapper 系统角色数据访问对象
      * @param menuMapper 系统菜单数据访问对象
      * @param apiPermissionMapper 系统API权限数据访问对象
@@ -104,6 +126,7 @@ public class RbacApplicationService {
      * @param transactionTemplate 事务模板
      */
     public RbacApplicationService(
+            SysAppMapper appMapper,
             SysRoleMapper roleMapper,
             SysMenuMapper menuMapper,
             SysApiPermissionMapper apiPermissionMapper,
@@ -112,6 +135,7 @@ public class RbacApplicationService {
             SysRoleApiPermissionMapper roleApiPermissionMapper,
             SysUserMapper sysUserMapper,
             TransactionTemplate transactionTemplate) {
+        this.appMapper = appMapper;
         this.roleMapper = roleMapper;
         this.menuMapper = menuMapper;
         this.apiPermissionMapper = apiPermissionMapper;
@@ -382,8 +406,77 @@ public class RbacApplicationService {
      * @return API权限列表
      */
     public List<SysApiPermission> listApiPermissions() {
-        return apiPermissionMapper.selectList(Wrappers.<SysApiPermission>lambdaQuery()
-                .orderByAsc(SysApiPermission::getSort, SysApiPermission::getApiPermissionId));
+        return apiPermissionMapper.selectAllByAppOrder();
+    }
+
+    /**
+     * 查询系统应用列表。
+     *
+     * @return 系统应用列表
+     */
+    public List<SysAppVo> listApps() {
+        return appMapper.selectList(Wrappers.<SysApp>lambdaQuery()
+                        .orderByAsc(SysApp::getSort, SysApp::getAppId))
+                .stream()
+                .map(this::toSysAppVo)
+                .toList();
+    }
+
+    /**
+     * 创建系统应用。
+     *
+     * @param request 应用保存请求
+     * @return 系统应用实体
+     */
+    public SysApp createApp(AppSaveRequest request) {
+        checkAppRequest(request, true);
+        if (selectAppByCode(request.getAppCode()) != null) {
+            throw new AuthException("应用编码已存在");
+        }
+        SysApp app = buildApp(null, request);
+        appMapper.insert(app);
+        return app;
+    }
+
+    /**
+     * 更新系统应用。
+     *
+     * @param appId 应用ID
+     * @param request 应用保存请求
+     * @return 系统应用实体
+     */
+    public SysApp updateApp(Long appId, AppSaveRequest request) {
+        SysApp exists = requireApp(appId);
+        checkAppRequest(request, false);
+        if (StringUtils.hasText(request.getAppCode()) && !request.getAppCode().equals(exists.getAppCode())) {
+            throw new AuthException("应用编码不能修改");
+        }
+        SysApp app = buildApp(appId, request);
+        app.setAppCode(exists.getAppCode());
+        appMapper.update(null, Wrappers.<SysApp>lambdaUpdate()
+                .set(SysApp::getAppName, app.getAppName())
+                .set(SysApp::getDescription, app.getDescription())
+                .set(SysApp::getStatus, app.getStatus())
+                .set(SysApp::getSort, app.getSort())
+                .eq(SysApp::getAppId, appId));
+        return app;
+    }
+
+    /**
+     * 删除系统应用。
+     *
+     * @param appId 应用ID
+     */
+    public void deleteApp(Long appId) {
+        requireApp(appId);
+        if (countApiPermissionsByAppId(appId) > 0) {
+            throw new AuthException("应用下存在API权限，不能删除");
+        }
+        int rows = appMapper.delete(Wrappers.<SysApp>lambdaQuery()
+                .eq(SysApp::getAppId, appId));
+        if (rows == 0) {
+            throw new AuthException("应用删除失败");
+        }
     }
 
     /**
@@ -394,6 +487,8 @@ public class RbacApplicationService {
      */
     public SysApiPermission createApiPermission(ApiPermissionSaveRequest request) {
         checkApiPermissionRequest(request, true);
+        SysApp app = requireEnabledApp(request.getAppId());
+        checkPermissionCodePrefix(request.getPermissionCode(), app);
         SysApiPermission permission = buildApiPermission(null, request, Boolean.FALSE);
         apiPermissionMapper.insert(permission);
         return permission;
@@ -409,8 +504,15 @@ public class RbacApplicationService {
     public SysApiPermission updateApiPermission(Long apiPermissionId, ApiPermissionSaveRequest request) {
         SysApiPermission exists = requireApiPermission(apiPermissionId);
         checkApiPermissionRequest(request, false);
+        SysApp app = requireEnabledApp(request.getAppId());
+        if (StringUtils.hasText(request.getPermissionCode()) && !request.getPermissionCode().equals(exists.getPermissionCode())) {
+            throw new AuthException("API权限编码不能修改");
+        }
+        checkPermissionCodePrefix(exists.getPermissionCode(), app);
         SysApiPermission permission = buildApiPermission(apiPermissionId, request, exists.getBuiltin());
+        permission.setPermissionCode(exists.getPermissionCode());
         apiPermissionMapper.update(null, Wrappers.<SysApiPermission>lambdaUpdate()
+                .set(SysApiPermission::getAppId, permission.getAppId())
                 .set(SysApiPermission::getPermissionName, permission.getPermissionName())
                 .set(SysApiPermission::getMethod, permission.getMethod())
                 .set(SysApiPermission::getPathPattern, permission.getPathPattern())
@@ -419,6 +521,30 @@ public class RbacApplicationService {
                 .set(SysApiPermission::getSort, permission.getSort())
                 .eq(SysApiPermission::getApiPermissionId, apiPermissionId));
         return permission;
+    }
+
+    /**
+     * 查询匹配的用户应用API权限编码。
+     *
+     * @param userId 用户ID
+     * @param appCode 应用编码
+     * @param method HTTP方法
+     * @param path 应用内部路径
+     * @return 匹配的权限编码
+     */
+    public String findMatchedApiPermissionCode(Long userId, String appCode, String method, String path) {
+        if (userId == null || !StringUtils.hasText(appCode) || !StringUtils.hasText(method) || !StringUtils.hasText(path)) {
+            return null;
+        }
+        List<SysApiPermission> permissions = apiPermissionMapper.selectEnabledByUserIdAndAppCode(userId, appCode);
+        String normalizedMethod = method.trim().toUpperCase(Locale.ROOT);
+        for (SysApiPermission permission : permissions) {
+            if (matchesMethod(permission.getMethod(), normalizedMethod)
+                    && matchesPath(permission.getPathPattern(), path)) {
+                return permission.getPermissionCode();
+            }
+        }
+        return null;
     }
 
     /**
@@ -568,6 +694,7 @@ public class RbacApplicationService {
     private SysApiPermission buildApiPermission(Long apiPermissionId, ApiPermissionSaveRequest request, Boolean builtin) {
         return SysApiPermission.builder()
                 .apiPermissionId(apiPermissionId)
+                .appId(request.getAppId())
                 .permissionCode(request.getPermissionCode())
                 .permissionName(request.getPermissionName())
                 .method(request.getMethod())
@@ -576,6 +703,42 @@ public class RbacApplicationService {
                 .status(resolveStatus(request.getStatus()))
                 .builtin(builtin)
                 .sort(resolveSort(request.getSort()))
+                .build();
+    }
+
+    /**
+     * 根据请求构建系统应用实体。
+     *
+     * @param appId 应用ID
+     * @param request 应用保存请求
+     * @return 系统应用实体
+     */
+    private SysApp buildApp(Long appId, AppSaveRequest request) {
+        return SysApp.builder()
+                .appId(appId)
+                .appCode(request.getAppCode())
+                .appName(request.getAppName())
+                .description(request.getDescription())
+                .status(resolveStatus(request.getStatus()))
+                .sort(resolveSort(request.getSort()))
+                .build();
+    }
+
+    /**
+     * 转换系统应用列表响应。
+     *
+     * @param app 系统应用实体
+     * @return 系统应用列表响应
+     */
+    private SysAppVo toSysAppVo(SysApp app) {
+        return SysAppVo.builder()
+                .appId(app.getAppId())
+                .appCode(app.getAppCode())
+                .appName(app.getAppName())
+                .description(app.getDescription())
+                .status(app.getStatus())
+                .sort(app.getSort())
+                .permissionCount(countApiPermissionsByAppId(app.getAppId()))
                 .build();
     }
 
@@ -616,9 +779,79 @@ public class RbacApplicationService {
                 || !StringUtils.hasText(request.getMethod()) || !StringUtils.hasText(request.getPathPattern())) {
             throw new AuthException("API权限名称、方法和路径不能为空");
         }
+        if (request.getAppId() == null) {
+            throw new AuthException("应用不能为空");
+        }
         if (creating && !StringUtils.hasText(request.getPermissionCode())) {
             throw new AuthException("API权限编码不能为空");
         }
+    }
+
+    /**
+     * 校验系统应用保存请求。
+     *
+     * @param request 应用保存请求
+     * @param creating 是否创建场景
+     */
+    private void checkAppRequest(AppSaveRequest request, boolean creating) {
+        if (request == null || !StringUtils.hasText(request.getAppName())) {
+            throw new AuthException("应用名称不能为空");
+        }
+        if (creating && !StringUtils.hasText(request.getAppCode())) {
+            throw new AuthException("应用编码不能为空");
+        }
+    }
+
+    /**
+     * 查询并要求应用启用。
+     *
+     * @param appId 应用ID
+     * @return 应用实体
+     */
+    private SysApp requireEnabledApp(Long appId) {
+        SysApp app = appMapper.selectById(appId);
+        if (app == null || !UserStatusEnum.ENABLE.getCode().equals(app.getStatus())) {
+            throw new AuthException("应用不存在或已禁用");
+        }
+        return app;
+    }
+
+    /**
+     * 校验权限编码应用前缀。
+     *
+     * @param permissionCode 权限编码
+     * @param app 应用实体
+     */
+    private void checkPermissionCodePrefix(String permissionCode, SysApp app) {
+        if (!StringUtils.hasText(permissionCode) || !permissionCode.startsWith(app.getAppCode() + ":")) {
+            throw new AuthException("权限编码必须以应用编码为前缀");
+        }
+    }
+
+    /**
+     * 判断HTTP方法是否匹配。
+     *
+     * @param permissionMethod 权限方法
+     * @param requestMethod 请求方法
+     * @return 是否匹配
+     */
+    private boolean matchesMethod(String permissionMethod, String requestMethod) {
+        if (!StringUtils.hasText(permissionMethod)) {
+            return false;
+        }
+        String normalizedPermissionMethod = permissionMethod.trim().toUpperCase(Locale.ROOT);
+        return ALL_METHODS.equals(normalizedPermissionMethod) || normalizedPermissionMethod.equals(requestMethod);
+    }
+
+    /**
+     * 判断应用内部路径是否匹配。
+     *
+     * @param pathPattern 路径匹配表达式
+     * @param path 请求路径
+     * @return 是否匹配
+     */
+    private boolean matchesPath(String pathPattern, String path) {
+        return StringUtils.hasText(pathPattern) && PATH_MATCHER.match(pathPattern, path);
     }
 
     /**
@@ -659,6 +892,43 @@ public class RbacApplicationService {
             throw new AuthException("菜单不存在");
         }
         return menu;
+    }
+
+    /**
+     * 查询并要求系统应用存在。
+     *
+     * @param appId 应用ID
+     * @return 系统应用实体
+     */
+    private SysApp requireApp(Long appId) {
+        SysApp app = appMapper.selectById(appId);
+        if (app == null) {
+            throw new AuthException("应用不存在");
+        }
+        return app;
+    }
+
+    /**
+     * 根据应用编码查询系统应用。
+     *
+     * @param appCode 应用编码
+     * @return 系统应用实体
+     */
+    private SysApp selectAppByCode(String appCode) {
+        return appMapper.selectOne(Wrappers.<SysApp>lambdaQuery()
+                .eq(SysApp::getAppCode, appCode)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * 统计应用下API权限数量。
+     *
+     * @param appId 应用ID
+     * @return API权限数量
+     */
+    private Long countApiPermissionsByAppId(Long appId) {
+        return apiPermissionMapper.selectCount(Wrappers.<SysApiPermission>lambdaQuery()
+                .eq(SysApiPermission::getAppId, appId));
     }
 
     /**

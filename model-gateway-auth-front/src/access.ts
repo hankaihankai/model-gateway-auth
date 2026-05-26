@@ -20,16 +20,17 @@ export default function access(initialState: { currentUser?: API.UserInfo; permi
   const hasPermission = (code: string) => permissions.includes(code);
   return {
     canSeeAdmin: !!currentUser,
-    canSeeRbac: hasPermission('role:view') || hasPermission('menu:view') || hasPermission('api-permission:view'),
-    canSeeUserManage: hasPermission('user:view'),
-    canSeeRoleManage: hasPermission('role:view'),
-    canSeeMenuManage: hasPermission('menu:view'),
-    canSeeApiPermissionManage: hasPermission('api-permission:view'),
-    canWriteUser: hasPermission('user:write'),
-    canWriteUserRole: hasPermission('user:role'),
-    canWriteUserAmount: hasPermission('user:amount'),
-    canWriteRole: hasPermission('role:write'),
-    canWriteMenu: hasPermission('menu:write'),
-    canWriteApiPermission: hasPermission('api-permission:write'),
+    canSeeRbac: hasPermission('system:role:view') || hasPermission('system:menu:view') || hasPermission('system:api-permission:view') || hasPermission('system:app:view'),
+    canSeeUserManage: hasPermission('system:user:view'),
+    canSeeRoleManage: hasPermission('system:role:view'),
+    canSeeMenuManage: hasPermission('system:menu:view'),
+    canSeeApiPermissionManage: hasPermission('system:api-permission:view') || hasPermission('system:app:view'),
+    canWriteUser: hasPermission('system:user:write'),
+    canWriteUserRole: hasPermission('system:user:role'),
+    canWriteUserAmount: hasPermission('system:user:amount'),
+    canWriteRole: hasPermission('system:role:write'),
+    canWriteMenu: hasPermission('system:menu:write'),
+    canWriteApp: hasPermission('system:app:write'),
+    canWriteApiPermission: hasPermission('system:api-permission:write'),
   };
 }

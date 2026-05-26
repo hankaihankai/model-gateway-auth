@@ -15,6 +15,11 @@ import lombok.NoArgsConstructor;
 public class ApiPermissionSaveRequest {
 
     /**
+     * 应用ID。
+     */
+    private Long appId;
+
+    /**
      * 权限编码。
      */
     private String permissionCode;

@@ -45,6 +45,7 @@ services:
       GATEWAY_CREDENTIAL_AES_KEY: ${GATEWAY_CREDENTIAL_AES_KEY}
       APISIX_REDIS_URL: ${AUTH_REDIS_URL:-redis://:123456@new-api-redis:6379/0}
       APISIX_CREDENTIAL_ENSURE_URL: ${APISIX_CREDENTIAL_ENSURE_URL:-http://host.docker.internal:8188/api/gateway/new-api-credential/ensure}
+      APISIX_PERMISSION_AUTHORIZE_URL: ${APISIX_PERMISSION_AUTHORIZE_URL:-http://host.docker.internal:8188/api/gateway/app-permission/authorize}
       AUTH_API_NODE: ${AUTH_API_NODE:-host.docker.internal:8188}
       AUTH_API_ROUTE_PREFIX: ${AUTH_API_ROUTE_PREFIX:-/model-gateway-auth}
       NEW_API_NODE: ${NEW_API_NODE:-120.53.240.51:3000}
@@ -64,6 +65,8 @@ services:
               "jwt_public_key": "$$APISIX_JWT_PUBLIC_KEY",
               "redis_url": "$$APISIX_REDIS_URL",
               "credential_ensure_url": "$$APISIX_CREDENTIAL_ENSURE_URL",
+              "permission_authorize_url": "$$APISIX_PERMISSION_AUTHORIZE_URL",
+              "app_code": "other",
               "gateway_secret": "$$APISIX_GATEWAY_SECRET",
               "aes_keys": {
                 "$$APISIX_AES_KEY_ID": "$$GATEWAY_CREDENTIAL_AES_KEY"

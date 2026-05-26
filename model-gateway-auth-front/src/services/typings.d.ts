@@ -286,10 +286,35 @@ declare namespace API {
   }
 
   /**
+   * 系统应用。
+   */
+  interface SysApp {
+    appId: number;
+    appCode: string;
+    appName: string;
+    description?: string;
+    status: number;
+    sort: number;
+    permissionCount?: number;
+  }
+
+  /**
+   * 系统应用保存请求。
+   */
+  interface AppSaveRequest {
+    appCode?: string;
+    appName: string;
+    description?: string;
+    status?: number;
+    sort?: number;
+  }
+
+  /**
    * API权限。
    */
   interface SysApiPermission {
     apiPermissionId: number;
+    appId: number;
     permissionCode: string;
     permissionName: string;
     method: string;
@@ -304,6 +329,7 @@ declare namespace API {
    * API权限保存请求。
    */
   interface ApiPermissionSaveRequest {
+    appId: number;
     permissionCode?: string;
     permissionName: string;
     method: string;

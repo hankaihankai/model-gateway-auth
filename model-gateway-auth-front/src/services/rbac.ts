@@ -96,6 +96,44 @@ export async function deleteMenu(menuId: number) {
 }
 
 /**
+ * 查询系统应用列表。
+ */
+export async function listApps() {
+  return request<API.ApiResponse<API.SysApp[]>>('/model-gateway-auth/api/admin/rbac/apps', {
+    method: 'GET',
+  });
+}
+
+/**
+ * 创建系统应用。
+ */
+export async function createApp(body: API.AppSaveRequest) {
+  return request<API.ApiResponse<API.SysApp>>('/model-gateway-auth/api/admin/rbac/apps', {
+    method: 'POST',
+    data: body,
+  });
+}
+
+/**
+ * 更新系统应用。
+ */
+export async function updateApp(appId: number, body: API.AppSaveRequest) {
+  return request<API.ApiResponse<API.SysApp>>(`/model-gateway-auth/api/admin/rbac/apps/${appId}`, {
+    method: 'PUT',
+    data: body,
+  });
+}
+
+/**
+ * 删除系统应用。
+ */
+export async function deleteApp(appId: number) {
+  return request<API.ApiResponse<boolean>>(`/model-gateway-auth/api/admin/rbac/apps/${appId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
  * 查询API权限列表。
  */
 export async function listApiPermissions() {

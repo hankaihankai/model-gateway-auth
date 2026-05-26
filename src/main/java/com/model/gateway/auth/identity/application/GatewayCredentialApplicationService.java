@@ -7,8 +7,11 @@ import com.model.gateway.auth.shared.enums.UserStatusEnum;
 import com.model.gateway.auth.newapi.application.NewApiBindingApplicationService;
 import com.model.gateway.auth.identity.infrastructure.config.GatewayCredentialProperties;
 import com.model.gateway.auth.identity.domain.model.LoginUser;
+import com.model.gateway.auth.identity.interfaces.dto.GatewayAppPermissionAuthorizeRequest;
 import com.model.gateway.auth.system.domain.model.SysUser;
 import com.model.gateway.auth.identity.interfaces.dto.GatewayCredentialEnsureRequest;
+import com.model.gateway.auth.identity.interfaces.vo.GatewayAppPermissionAuthorizeResponse;
+import com.model.gateway.auth.system.application.RbacApplicationService;
 import com.model.gateway.auth.shared.exception.AuthStatusException;
 import com.model.gateway.auth.identity.interfaces.vo.GatewayCredentialResponse;
 import org.springframework.http.HttpStatus;
@@ -42,19 +45,27 @@ public class GatewayCredentialApplicationService {
     private final NewApiBindingApplicationService newApiBindingService;
 
     /**
+     * 系统权限应用服务。
+     */
+    private final RbacApplicationService rbacApplicationService;
+
+    /**
      * 创建APISIX网关凭证业务服务。
      *
      * @param credentialProperties 网关凭证配置属性
      * @param sysUserMapper 用户数据访问对象
      * @param newApiBindingService new-api绑定业务服务
+     * @param rbacApplicationService 系统权限应用服务
      */
     public GatewayCredentialApplicationService(
             GatewayCredentialProperties credentialProperties,
             SysUserMapper sysUserMapper,
-            NewApiBindingApplicationService newApiBindingService) {
+            NewApiBindingApplicationService newApiBindingService,
+            RbacApplicationService rbacApplicationService) {
         this.credentialProperties = credentialProperties;
         this.sysUserMapper = sysUserMapper;
         this.newApiBindingService = newApiBindingService;
+        this.rbacApplicationService = rbacApplicationService;
     }
 
     /**
@@ -93,6 +104,60 @@ public class GatewayCredentialApplicationService {
         }
 
         return newApiBindingService.ensureCredential(LoginUser.from(user));
+    }
+
+    /**
+     * 校验APISIX网关应用API权限。
+     *
+     * @param gatewaySecret APISIX回源密钥
+     * @param authorization Authorization请求头
+     * @param request 应用权限鉴权请求
+     * @return 应用权限鉴权响应
+     */
+    public GatewayAppPermissionAuthorizeResponse authorizeAppPermission(
+            String gatewaySecret,
+            String authorization,
+            GatewayAppPermissionAuthorizeRequest request) {
+        checkGatewaySecret(gatewaySecret);
+        String token = extractBearerToken(authorization);
+        Object loginId = StpUtil.getLoginIdByToken(token);
+        if (loginId == null) {
+            throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token无效或已过期");
+        }
+        Long tokenUserId = Long.valueOf(loginId.toString());
+        String lastActiveKey = SaManager.getConfig().getTokenName() + ":login:last-active:" + token;
+        boolean tokenAlive = SaManager.getSaTokenDao().get(lastActiveKey) != null;
+        if (!tokenAlive) {
+            throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token已登出或已过期");
+        }
+        if (request == null || request.getUserId() == null || !tokenUserId.equals(request.getUserId())) {
+            throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "Token用户不匹配");
+        }
+        if (!StringUtils.hasText(request.getAppCode()) || !StringUtils.hasText(request.getMethod()) || !StringUtils.hasText(request.getPath())) {
+            throw new AuthStatusException(HttpStatus.BAD_REQUEST, 400, "应用权限鉴权参数不能为空");
+        }
+
+        SysUser user = sysUserMapper.selectById(request.getUserId());
+        if (user == null) {
+            throw new AuthStatusException(HttpStatus.UNAUTHORIZED, 401, "用户不存在");
+        }
+        if (!UserStatusEnum.ENABLE.getCode().equals(user.getStatus())) {
+            throw new AuthStatusException(HttpStatus.FORBIDDEN, 403, "用户已禁用");
+        }
+
+        String permissionCode = rbacApplicationService.findMatchedApiPermissionCode(
+                request.getUserId(),
+                request.getAppCode(),
+                request.getMethod(),
+                request.getPath()
+        );
+        if (!StringUtils.hasText(permissionCode)) {
+            throw new AuthStatusException(HttpStatus.FORBIDDEN, 403, "无应用接口权限");
+        }
+        return GatewayAppPermissionAuthorizeResponse.builder()
+                .allowed(Boolean.TRUE)
+                .permissionCode(permissionCode)
+                .build();
     }
 
     /**

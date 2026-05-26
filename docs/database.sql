@@ -73,8 +73,23 @@ CREATE TABLE IF NOT EXISTS `sys_menu` (
   KEY `idx_sys_menu_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统菜单权限表';
 
+CREATE TABLE IF NOT EXISTS `sys_app` (
+  `app_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '应用ID',
+  `app_code` VARCHAR(64) NOT NULL COMMENT '应用编码',
+  `app_name` VARCHAR(64) NOT NULL COMMENT '应用名称',
+  `description` VARCHAR(255) DEFAULT NULL COMMENT '应用说明',
+  `status` INT NOT NULL DEFAULT 0 COMMENT '应用状态：0启用、1禁用',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序值',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`app_id`),
+  UNIQUE KEY `uk_sys_app_code` (`app_code`),
+  KEY `idx_sys_app_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统应用表';
+
 CREATE TABLE IF NOT EXISTS `sys_api_permission` (
   `api_permission_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'API权限ID',
+  `app_id` BIGINT NOT NULL COMMENT '应用ID',
   `permission_code` VARCHAR(128) NOT NULL COMMENT '权限编码',
   `permission_name` VARCHAR(64) NOT NULL COMMENT '权限名称',
   `method` VARCHAR(16) NOT NULL COMMENT 'HTTP方法',
@@ -86,7 +101,7 @@ CREATE TABLE IF NOT EXISTS `sys_api_permission` (
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`api_permission_id`),
-  UNIQUE KEY `uk_sys_api_permission_code` (`permission_code`),
+  UNIQUE KEY `uk_sys_api_permission_app_code` (`app_id`, `permission_code`),
   KEY `idx_sys_api_permission_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统API权限表';
 
@@ -116,30 +131,38 @@ INSERT IGNORE INTO `sys_role` (`role_id`, `role_code`, `role_name`, `description
 (3, 'USER', '普通用户', '普通业务用户', 0, 1, 3);
 
 INSERT IGNORE INTO `sys_menu` (`menu_id`, `parent_id`, `menu_type`, `menu_name`, `path`, `component_key`, `permission_code`, `icon`, `visible`, `status`, `builtin`, `sort`) VALUES
-(1, 0, 'DIR', '用户管理', '/user-manage', NULL, 'user:view', 'UserOutlined', 1, 0, 1, 10),
-(2, 1, 'MENU', '用户列表', '/user-manage/list', 'UserManageList', 'user:view', NULL, 1, 0, 1, 11),
-(3, 0, 'DIR', '权限管理', '/rbac', NULL, 'role:view', 'SafetyCertificateOutlined', 1, 0, 1, 20),
-(4, 3, 'MENU', '角色管理', '/rbac/roles', 'RoleManageList', 'role:view', NULL, 1, 0, 1, 21),
-(5, 3, 'MENU', '菜单管理', '/rbac/menus', 'MenuManageList', 'menu:view', NULL, 1, 0, 1, 22),
-(6, 3, 'MENU', 'API权限', '/rbac/api-permissions', 'ApiPermissionManageList', 'api-permission:view', NULL, 1, 0, 1, 23),
-(101, 2, 'BUTTON', '用户写入', NULL, NULL, 'user:write', NULL, 0, 0, 1, 101),
-(102, 2, 'BUTTON', '用户额度', NULL, NULL, 'user:amount', NULL, 0, 0, 1, 102),
-(103, 2, 'BUTTON', '用户角色', NULL, NULL, 'user:role', NULL, 0, 0, 1, 103),
-(201, 4, 'BUTTON', '角色写入', NULL, NULL, 'role:write', NULL, 0, 0, 1, 201),
-(301, 5, 'BUTTON', '菜单写入', NULL, NULL, 'menu:write', NULL, 0, 0, 1, 301),
-(401, 6, 'BUTTON', 'API权限写入', NULL, NULL, 'api-permission:write', NULL, 0, 0, 1, 401);
+(1, 0, 'DIR', '用户管理', '/user-manage', NULL, 'system:user:view', 'UserOutlined', 1, 0, 1, 10),
+(2, 1, 'MENU', '用户列表', '/user-manage/list', 'UserManageList', 'system:user:view', NULL, 1, 0, 1, 11),
+(3, 0, 'DIR', '权限管理', '/rbac', NULL, 'system:role:view', 'SafetyCertificateOutlined', 1, 0, 1, 20),
+(4, 3, 'MENU', '角色管理', '/rbac/roles', 'RoleManageList', 'system:role:view', NULL, 1, 0, 1, 21),
+(5, 3, 'MENU', '菜单管理', '/rbac/menus', 'MenuManageList', 'system:menu:view', NULL, 1, 0, 1, 22),
+(6, 3, 'MENU', 'API权限', '/rbac/api-permissions', 'ApiPermissionManageList', 'system:api-permission:view', NULL, 1, 0, 1, 23),
+(101, 2, 'BUTTON', '用户写入', NULL, NULL, 'system:user:write', NULL, 0, 0, 1, 101),
+(102, 2, 'BUTTON', '用户额度', NULL, NULL, 'system:user:amount', NULL, 0, 0, 1, 102),
+(103, 2, 'BUTTON', '用户角色', NULL, NULL, 'system:user:role', NULL, 0, 0, 1, 103),
+(201, 4, 'BUTTON', '角色写入', NULL, NULL, 'system:role:write', NULL, 0, 0, 1, 201),
+(301, 5, 'BUTTON', '菜单写入', NULL, NULL, 'system:menu:write', NULL, 0, 0, 1, 301),
+(401, 6, 'BUTTON', 'API权限写入', NULL, NULL, 'system:api-permission:write', NULL, 0, 0, 1, 401),
+(402, 6, 'BUTTON', '应用写入', NULL, NULL, 'system:app:write', NULL, 0, 0, 1, 402);
 
-INSERT IGNORE INTO `sys_api_permission` (`api_permission_id`, `permission_code`, `permission_name`, `method`, `path_pattern`, `description`, `status`, `builtin`, `sort`) VALUES
-(1, 'user:view', '用户查看', 'GET', '/api/admin/users/**', '查看用户列表、详情、模型和调用记录', 0, 1, 10),
-(2, 'user:write', '用户写入', 'POST', '/api/admin/users/**', '创建用户、修改状态、补绑new-api', 0, 1, 11),
-(3, 'user:amount', '用户额度', 'POST', '/api/admin/users/*/amount', '调整用户额度', 0, 1, 12),
-(4, 'user:role', '用户角色', 'PUT', '/api/admin/users/*/roles', '分配用户角色', 0, 1, 13),
-(5, 'role:view', '角色查看', 'GET', '/api/admin/rbac/roles/**', '查看角色和授权', 0, 1, 20),
-(6, 'role:write', '角色写入', '*', '/api/admin/rbac/roles/**', '创建、更新、删除角色和授权', 0, 1, 21),
-(7, 'menu:view', '菜单查看', 'GET', '/api/admin/rbac/menus/**', '查看菜单', 0, 1, 30),
-(8, 'menu:write', '菜单写入', '*', '/api/admin/rbac/menus/**', '创建、更新、删除菜单', 0, 1, 31),
-(9, 'api-permission:view', 'API权限查看', 'GET', '/api/admin/rbac/api-permissions/**', '查看API权限', 0, 1, 40),
-(10, 'api-permission:write', 'API权限写入', '*', '/api/admin/rbac/api-permissions/**', '创建、更新、删除API权限', 0, 1, 41);
+INSERT IGNORE INTO `sys_app` (`app_id`, `app_code`, `app_name`, `description`, `status`, `sort`) VALUES
+(1, 'system', '后台系统', '后台管理系统权限分组', 0, 1),
+(2, 'other', '其他应用', '不按应用URL前缀区分的固定路由权限分组', 0, 99);
+
+INSERT IGNORE INTO `sys_api_permission` (`api_permission_id`, `app_id`, `permission_code`, `permission_name`, `method`, `path_pattern`, `description`, `status`, `builtin`, `sort`) VALUES
+(1, 1, 'system:user:view', '用户查看', 'GET', '/api/admin/users/**', '查看用户列表、详情、模型和调用记录', 0, 1, 10),
+(2, 1, 'system:user:write', '用户写入', 'POST', '/api/admin/users/**', '创建用户、修改状态、补绑new-api', 0, 1, 11),
+(3, 1, 'system:user:amount', '用户额度', 'POST', '/api/admin/users/*/amount', '调整用户额度', 0, 1, 12),
+(4, 1, 'system:user:role', '用户角色', 'PUT', '/api/admin/users/*/roles', '分配用户角色', 0, 1, 13),
+(5, 1, 'system:role:view', '角色查看', 'GET', '/api/admin/rbac/roles/**', '查看角色和授权', 0, 1, 20),
+(6, 1, 'system:role:write', '角色写入', '*', '/api/admin/rbac/roles/**', '创建、更新、删除角色和授权', 0, 1, 21),
+(7, 1, 'system:menu:view', '菜单查看', 'GET', '/api/admin/rbac/menus/**', '查看菜单', 0, 1, 30),
+(8, 1, 'system:menu:write', '菜单写入', '*', '/api/admin/rbac/menus/**', '创建、更新、删除菜单', 0, 1, 31),
+(9, 1, 'system:api-permission:view', 'API权限查看', 'GET', '/api/admin/rbac/api-permissions/**', '查看API权限', 0, 1, 40),
+(10, 1, 'system:api-permission:write', 'API权限写入', '*', '/api/admin/rbac/api-permissions/**', '创建、更新、删除API权限', 0, 1, 41),
+(12, 1, 'system:app:view', '应用查看', 'GET', '/api/admin/rbac/apps/**', '查看系统应用', 0, 1, 42),
+(13, 1, 'system:app:write', '应用写入', '*', '/api/admin/rbac/apps/**', '创建、更新、删除系统应用', 0, 1, 43),
+(11, 2, 'other:chat:completions', '聊天补全', 'POST', '/v1/chat/completions', '调用聊天补全接口', 0, 1, 100);
 
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
 SELECT r.role_id, m.menu_id
@@ -152,6 +175,12 @@ SELECT r.role_id, ap.api_permission_id
 FROM `sys_role` r
 JOIN `sys_api_permission` ap ON ap.builtin = 1
 WHERE r.role_code IN ('SUPER_ADMIN', 'ADMIN');
+
+INSERT IGNORE INTO `sys_role_api_permission` (`role_id`, `api_permission_id`)
+SELECT r.role_id, ap.api_permission_id
+FROM `sys_role` r
+JOIN `sys_api_permission` ap ON ap.permission_code = 'other:chat:completions'
+WHERE r.role_code = 'USER';
 
 INSERT IGNORE INTO `sys_user` (`user_id`, `username`, `password`, `nickname`, `phone`, `email`, `status`, `create_time`, `update_time`) VALUES
 (1, 'hankai', '$2a$10$aYgsjiIHzD4EjcYk5hdSU.AzHSrOEVZ901tVXZxImK4ifjIBB7Bp2', 'hankai', NULL, NULL, 0, '2026-04-28 08:54:16', '2026-05-01 14:57:54'),

@@ -8,52 +8,62 @@ public final class RbacPermissionConstants {
     /**
      * 用户管理查看权限。
      */
-    public static final String USER_VIEW = "user:view";
+    public static final String USER_VIEW = "system:user:view";
 
     /**
      * 用户管理写入权限。
      */
-    public static final String USER_WRITE = "user:write";
+    public static final String USER_WRITE = "system:user:write";
 
     /**
      * 用户额度管理权限。
      */
-    public static final String USER_AMOUNT = "user:amount";
+    public static final String USER_AMOUNT = "system:user:amount";
 
     /**
      * 用户角色分配权限。
      */
-    public static final String USER_ROLE = "user:role";
+    public static final String USER_ROLE = "system:user:role";
 
     /**
      * 角色查看权限。
      */
-    public static final String ROLE_VIEW = "role:view";
+    public static final String ROLE_VIEW = "system:role:view";
 
     /**
      * 角色写入权限。
      */
-    public static final String ROLE_WRITE = "role:write";
+    public static final String ROLE_WRITE = "system:role:write";
 
     /**
      * 菜单查看权限。
      */
-    public static final String MENU_VIEW = "menu:view";
+    public static final String MENU_VIEW = "system:menu:view";
 
     /**
      * 菜单写入权限。
      */
-    public static final String MENU_WRITE = "menu:write";
+    public static final String MENU_WRITE = "system:menu:write";
+
+    /**
+     * 应用查看权限。
+     */
+    public static final String APP_VIEW = "system:app:view";
+
+    /**
+     * 应用写入权限。
+     */
+    public static final String APP_WRITE = "system:app:write";
 
     /**
      * API权限查看权限。
      */
-    public static final String API_PERMISSION_VIEW = "api-permission:view";
+    public static final String API_PERMISSION_VIEW = "system:api-permission:view";
 
     /**
      * API权限写入权限。
      */
-    public static final String API_PERMISSION_WRITE = "api-permission:write";
+    public static final String API_PERMISSION_WRITE = "system:api-permission:write";
 
     /**
      * 创建RBAC权限编码常量。

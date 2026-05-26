@@ -1,8 +1,10 @@
 package com.model.gateway.auth.identity.interfaces.http;
 
 import com.model.gateway.auth.shared.api.ApiResponse;
+import com.model.gateway.auth.identity.interfaces.dto.GatewayAppPermissionAuthorizeRequest;
 import com.model.gateway.auth.identity.interfaces.dto.GatewayCredentialEnsureRequest;
 import com.model.gateway.auth.identity.application.GatewayCredentialApplicationService;
+import com.model.gateway.auth.identity.interfaces.vo.GatewayAppPermissionAuthorizeResponse;
 import com.model.gateway.auth.identity.interfaces.vo.GatewayCredentialResponse;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -45,5 +47,21 @@ public class GatewayCredentialController {
             @RequestHeader("Authorization") String authorization,
             @RequestBody GatewayCredentialEnsureRequest request) {
         return ApiResponse.success(gatewayCredentialService.ensureCredential(gatewaySecret, authorization, request));
+    }
+
+    /**
+     * 校验APISIX网关应用API权限。
+     *
+     * @param gatewaySecret APISIX回源密钥
+     * @param authorization Authorization请求头
+     * @param request 应用权限鉴权请求
+     * @return 应用权限鉴权响应
+     */
+    @PostMapping("/app-permission/authorize")
+    public ApiResponse<GatewayAppPermissionAuthorizeResponse> authorizeAppPermission(
+            @RequestHeader("X-Gateway-Secret") String gatewaySecret,
+            @RequestHeader("Authorization") String authorization,
+            @RequestBody GatewayAppPermissionAuthorizeRequest request) {
+        return ApiResponse.success(gatewayCredentialService.authorizeAppPermission(gatewaySecret, authorization, request));
     }
 }

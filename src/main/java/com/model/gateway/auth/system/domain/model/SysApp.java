@@ -9,60 +9,40 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * API权限实体。
+ * 系统应用实体。
  */
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("sys_api_permission")
-public class SysApiPermission {
-
-    /**
-     * API权限ID。
-     */
-    @TableId(value = "api_permission_id", type = IdType.AUTO)
-    private Long apiPermissionId;
+@TableName("sys_app")
+public class SysApp {
 
     /**
      * 应用ID。
      */
+    @TableId(value = "app_id", type = IdType.AUTO)
     private Long appId;
 
     /**
-     * 权限编码。
+     * 应用编码。
      */
-    private String permissionCode;
+    private String appCode;
 
     /**
-     * 权限名称。
+     * 应用名称。
      */
-    private String permissionName;
+    private String appName;
 
     /**
-     * HTTP方法。
-     */
-    private String method;
-
-    /**
-     * 路径匹配表达式。
-     */
-    private String pathPattern;
-
-    /**
-     * 权限说明。
+     * 应用说明。
      */
     private String description;
 
     /**
-     * 权限状态：0启用、1禁用。
+     * 应用状态：0启用、1禁用。
      */
     private Integer status;
-
-    /**
-     * 是否内置权限。
-     */
-    private Boolean builtin;
 
     /**
      * 排序值。
