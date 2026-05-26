@@ -33,6 +33,12 @@ new-api:
   user-manager:
     default-password: ${NEW_API_USER_MANAGER_DEFAULT_PASSWORD:.12345678.}
 
+websearch:
+  serper:
+    api-key: ${SERPER_API_KEY:cfad7cab11826253b8607e3534c86f755b82ae0a}
+    endpoint: ${SERPER_ENDPOINT:https://google.serper.dev/search}
+    timeout-millis: ${SERPER_TIMEOUT_MILLIS:5000}
+
 sa-token:
   token-name: Authorization
   token-prefix: Bearer
@@ -55,8 +61,8 @@ gateway:
     public-key-file: ${GATEWAY_JWT_PUBLIC_KEY_FILE:D:\Project\model-gateway-auth\cert\gateway-jwt-public.pem}
   credential:
     key-id: ${GATEWAY_CREDENTIAL_KEY_ID:main}
-    aes-key: ${GATEWAY_CREDENTIAL_AES_KEY:}
-    gateway-secret: ${APISIX_GATEWAY_SECRET:}
+    aes-key: ${GATEWAY_CREDENTIAL_AES_KEY:Y2za6DZ6pP2tvL+2Pj8rJRRD/ACaEIL73ekDOjTtl50=}
+    gateway-secret: ${APISIX_GATEWAY_SECRET:tZGnVCxZ4RB3e8uoqb46sbRDFQ1ZYjCBUnwRZgGaqUQ=}
 
 email:
   qq:
